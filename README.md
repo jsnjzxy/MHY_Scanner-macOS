@@ -1,10 +1,10 @@
-<img width="1000" height="1256" alt="image" src="https://github.com/user-attachments/assets/816797ab-6eef-4667-967e-47a58f9c5fad" /># MHY_Scanner-macOS
+# MHY_Scanner-macOS
 MHY扫码登录器（mac版本），支持从直播流抢码。
 
 ### **版本 - v1.1.14 (macOS 适配版)**
 
 > 本项目是 [MHY_Scanner](https://github.com/Theresa-0328/MHY_Scanner) 的 macOS 适配版本，原项目为 Windows 平台开发。
-> <img width="1000" height="1256" alt="image" src="https://github.com/user-attachments/assets/b8f83d2d-3806-41ee-b64d-16fae353eec8" />
+> <img width="500" height="628" alt="image" src="https://github.com/user-attachments/assets/b8f83d2d-3806-41ee-b64d-16fae353eec8" />
 
 
 ## 功能和特性
