@@ -1,0 +1,56 @@
+{
+  "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
+  "name": "mhy-scanner",
+  "version": "1.1.15",
+  "description": "MHY game QR code scanner",
+  "license": "MIT",
+  "supports": "(windows | linux | osx)",
+  "dependencies": [
+    {
+      "name": "qtbase",
+      "features": ["gui", "widgets"],
+      "platform": "windows"
+    },
+    {
+      "name": "qtbase",
+      "features": ["dbus", "gui", "widgets"],
+      "platform": "!windows"
+    },
+    {
+      "name": "qtdeclarative",
+      "platform": "!windows"
+    },
+    {
+      "name": "qtquickcontrols2",
+      "platform": "!windows"
+    },
+    {
+      "name": "qtwebchannel",
+      "platform": "!windows"
+    },
+    {
+      "name": "qtmultimedia",
+      "platform": "!windows"
+    },
+    {
+      "name": "opencv"
+    },
+    {
+      "name": "ffmpeg",
+      "features": ["avcodec", "avdevice", "avfilter", "avformat", "swresample", "swscale"]
+    },
+    {
+      "name": "curl",
+      "features": ["ssl"]
+    },
+    {
+      "name": "openssl"
+    },
+    {
+      "name": "gtest"
+    },
+    {
+      "name": "nlohmann-json"
+    }
+  ]
+}

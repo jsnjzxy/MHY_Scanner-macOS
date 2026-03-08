@@ -1,0 +1,377 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>MainWindow</class>
+ <widget class="QMainWindow" name="MainWindow">
+  <property name="enabled">
+   <bool>true</bool>
+  </property>
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>500</width>
+    <height>600</height>
+   </rect>
+  </property>
+  <property name="minimumSize">
+   <size>
+    <width>500</width>
+    <height>600</height>
+   </size>
+  </property>
+  <property name="maximumSize">
+   <size>
+    <width>500</width>
+    <height>600</height>
+   </size>
+  </property>
+  <property name="windowTitle">
+   <string>MHY扫码器</string>
+  </property>
+  <widget class="QWidget" name="centralWidget">
+   <layout class="QVBoxLayout" name="mainLayout">
+    <property name="spacing">
+     <number>12</number>
+    </property>
+    <property name="leftMargin">
+     <number>10</number>
+    </property>
+    <property name="topMargin">
+     <number>10</number>
+    </property>
+    <property name="rightMargin">
+     <number>10</number>
+    </property>
+    <property name="bottomMargin">
+     <number>10</number>
+    </property>
+    <!-- 账号表格 -->
+    <item>
+     <widget class="DraggableTableWidget" name="tableWidget">
+      <property name="minimumSize">
+       <size>
+        <width>0</width>
+        <height>250</height>
+       </size>
+      </property>
+     </widget>
+    </item>
+    <!-- 用户信息和直播设置区域 -->
+    <item>
+     <layout class="QHBoxLayout" name="userInfoLayout">
+      <property name="spacing">
+       <number>12</number>
+      </property>
+      <!-- 当前选中用户 -->
+      <item>
+       <widget class="QLabel" name="labelUname">
+        <property name="text">
+         <string>当前选中用户名：</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QLineEdit" name="lineEditUname">
+        <property name="enabled">
+         <bool>true</bool>
+        </property>
+        <property name="text">
+         <string>未选中</string>
+        </property>
+        <property name="alignment">
+         <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+        </property>
+        <property name="readOnly">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <spacer name="horizontalSpacer">
+        <property name="orientation">
+         <enum>Qt::Horizontal</enum>
+        </property>
+        <property name="sizeHint" stdset="0">
+         <size>
+          <width>40</width>
+          <height>20</height>
+         </size>
+        </property>
+       </spacer>
+      </item>
+     </layout>
+    </item>
+    <!-- 直播设置区域 -->
+    <item>
+     <layout class="QHBoxLayout" name="liveSettingsLayout">
+      <property name="spacing">
+       <number>12</number>
+      </property>
+      <!-- 直播平台 -->
+      <item>
+       <widget class="QLabel" name="labelLiveName_2">
+        <property name="text">
+         <string>直播平台：</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QComboBox" name="comboBox">
+        <item>
+         <property name="text">
+          <string>抖音</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>BiliBili</string>
+         </property>
+        </item>
+       </widget>
+      </item>
+      <!-- 直播间ID -->
+      <item>
+       <widget class="QLabel" name="labelLiveName">
+        <property name="text">
+         <string>直播间ID：</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QLineEdit" name="lineEditLiveId"/>
+      </item>
+     </layout>
+    </item>
+    <!-- 操作按钮区域 -->
+    <item>
+     <layout class="QHBoxLayout" name="actionButtonsLayout">
+      <property name="spacing">
+       <number>50</number>
+      </property>
+      <property name="leftMargin">
+       <number>40</number>
+      </property>
+      <property name="rightMargin">
+       <number>40</number>
+      </property>
+      <item>
+       <widget class="QPushButton" name="pBtstartScreen">
+        <property name="minimumSize">
+         <size>
+          <width>0</width>
+          <height>40</height>
+         </size>
+        </property>
+        <property name="text">
+         <string>监视屏幕</string>
+        </property>
+        <property name="checkable">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="pBtStream">
+        <property name="minimumSize">
+         <size>
+          <width>0</width>
+          <height>40</height>
+         </size>
+        </property>
+        <property name="text">
+         <string>监视直播间</string>
+        </property>
+        <property name="checkable">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </item>
+    <!-- 设置复选框区域 -->
+    <item>
+     <layout class="QGridLayout" name="settingsLayout">
+      <property name="horizontalSpacing">
+       <number>20</number>
+      </property>
+      <property name="verticalSpacing">
+       <number>8</number>
+      </property>
+      <property name="leftMargin">
+       <number>20</number>
+      </property>
+      <property name="rightMargin">
+       <number>20</number>
+      </property>
+      <!-- 第一行 -->
+      <item row="0" column="0">
+       <widget class="QCheckBox" name="checkBoxAutoLogin">
+        <property name="text">
+         <string>自动二次确认</string>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="1">
+       <widget class="QCheckBox" name="checkBoxContinuousScan">
+        <property name="text">
+         <string>连续扫码</string>
+        </property>
+       </widget>
+      </item>
+      <!-- 第二行 -->
+      <item row="1" column="0">
+       <widget class="QCheckBox" name="checkBoxAutoScreen">
+        <property name="enabled">
+         <bool>true</bool>
+        </property>
+        <property name="text">
+         <string>启动时自动监视屏幕</string>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="1">
+       <widget class="QCheckBox" name="checkBoxAutoExit">
+        <property name="text">
+         <string>扫码成功后自动退出</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </item>
+    <!-- 底部信息区域 -->
+    <item>
+     <layout class="QHBoxLayout" name="footerLayout">
+      <property name="spacing">
+       <number>8</number>
+      </property>
+      <item>
+       <widget class="QLabel" name="label_3">
+        <property name="text">
+         <string>version</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QLabel" name="label_2">
+        <property name="text">
+         <string>项目源码：</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QLabel" name="label">
+        <property name="text">
+         <string>&lt;a href=&quot;https://github.com/Theresa-0328/MHY_Scanner&quot;&gt;https://github.com/Theresa-0328/MHY_Scanner</string>
+        </property>
+        <property name="scaledContents">
+         <bool>false</bool>
+        </property>
+        <property name="openExternalLinks">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <spacer name="footerSpacer">
+        <property name="orientation">
+         <enum>Qt::Horizontal</enum>
+        </property>
+        <property name="sizeHint" stdset="0">
+         <size>
+          <width>40</width>
+          <height>20</height>
+         </size>
+        </property>
+       </spacer>
+      </item>
+     </layout>
+    </item>
+   </layout>
+  </widget>
+  <widget class="QMenuBar" name="menuBar">
+   <property name="geometry">
+    <rect>
+     <x>0</x>
+     <y>0</y>
+     <width>500</width>
+     <height>22</height>
+    </rect>
+   </property>
+   <widget class="QMenu" name="menu">
+    <property name="title">
+     <string>账号管理</string>
+    </property>
+    <addaction name="action1_3"/>
+    <addaction name="action2_3"/>
+    <addaction name="action1_4"/>
+    <addaction name="action1_5"/>
+   </widget>
+   <widget class="QMenu" name="menu_2">
+    <property name="title">
+     <string>关于</string>
+    </property>
+    <addaction name="action1_2"/>
+    <addaction name="action2_2"/>
+   </widget>
+   <addaction name="menu"/>
+   <addaction name="menu_2"/>
+  </widget>
+  <action name="a1">
+   <property name="text">
+    <string>设置</string>
+   </property>
+  </action>
+  <action name="action1">
+   <property name="text">
+    <string>反馈问题</string>
+   </property>
+  </action>
+  <action name="action2">
+   <property name="text">
+    <string>项目主页</string>
+   </property>
+  </action>
+  <action name="action1_2">
+   <property name="text">
+    <string>关于</string>
+   </property>
+  </action>
+  <action name="action2_2">
+   <property name="text">
+    <string>帮助和反馈</string>
+   </property>
+  </action>
+  <action name="action1_3">
+   <property name="text">
+    <string>添加账号</string>
+   </property>
+  </action>
+  <action name="action2_3">
+   <property name="text">
+    <string>删除账号</string>
+   </property>
+  </action>
+  <action name="action1_4">
+   <property name="text">
+    <string>设为默认账号</string>
+   </property>
+  </action>
+  <action name="action1_5">
+   <property name="text">
+    <string>打开配置文件</string>
+   </property>
+  </action>
+ </widget>
+ <layoutdefault spacing="6" margin="11"/>
+ <customwidgets>
+  <customwidget>
+   <class>DraggableTableWidget</class>
+   <extends>QTableWidget</extends>
+   <header>Widgets/DraggableTableWidget.h</header>
+  </customwidget>
+ </customwidgets>
+ <resources>
+  <include location="../Resources/MHY_Scanner.qrc"/>
+ </resources>
+ <connections/>
+</ui>
