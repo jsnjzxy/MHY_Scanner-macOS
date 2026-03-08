@@ -5,6 +5,7 @@
 #include <regex>
 #include <random>
 #include <chrono>
+#include <iostream>
 
 #include <nlohmann/json.hpp>
 

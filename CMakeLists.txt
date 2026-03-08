@@ -48,7 +48,7 @@ find_package(Qt6 REQUIRED COMPONENTS ${QT_COMPONENTS})
 # vcpkg 依赖 (非 Qt 依赖)
 find_package(OpenCV REQUIRED COMPONENTS core imgproc imgcodecs highgui)
 find_package(FFmpeg REQUIRED)
-find_package(CURL REQUIRED)
+find_package(cpr REQUIRED)
 find_package(nlohmann_json REQUIRED)
 
 if(USE_OPENSSL)
@@ -149,8 +149,8 @@ else()
     list(APPEND PROJECT_LIBRARIES swscale)
 endif()
 
-# cURL
-list(APPEND PROJECT_LIBRARIES CURL::libcurl)
+    # cpr
+    list(APPEND PROJECT_LIBRARIES cpr::cpr)
 
 # OpenSSL
 if(USE_OPENSSL)

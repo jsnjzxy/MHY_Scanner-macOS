@@ -1,19 +1,15 @@
-﻿#include "HttpClient.h"
+#include "HttpClient.h"
 
-#include <iomanip>
-#include <chrono>
 #include <sstream>
-#include <random>
+#include <cpr/api.h>
 
-HttpClient::HttpClient() :
-    curl(nullptr)
+HttpClient::HttpClient()
 {
-    curl = curl_easy_init();
-}
-
-HttpClient::~HttpClient()
-{
-    curl_easy_cleanup(curl);
+    // 配置默认选项
+    session.SetVerifySsl(false);  // 对应原来的 SSL_VERIFYPEER=false
+    session.SetRedirect(cpr::Redirect(true));  // 对应 FOLLOWLOCATION=true
+    session.SetConnectTimeout(cpr::ConnectTimeout(std::chrono::milliseconds(10000)));
+    session.SetTimeout(cpr::Timeout(std::chrono::milliseconds(10000)));
 }
 
 std::string HttpClient::MapToQueryString(const std::map<std::string, std::string>& params)
@@ -63,88 +59,67 @@ std::map<std::string, std::string> HttpClient::QueryStringToMap(const std::strin
     return params;
 }
 
-size_t HttpClient::req_reply(void* ptr, size_t size, size_t nmemb, void* stream) //回调
-{
-    //std::cout << "----->reply" << std::endl;
-    std::string* str = (std::string*)stream;
-    //std::cout << *str << std::endl;
-    (*str).append((char*)ptr, size * nmemb);
-    return size * nmemb;
-}
-
 bool HttpClient::GetRequest(std::string& response, const char* url, std::map<std::string, std::string> headers)
 {
-    CURLcode res{};
-    if (!curl)
+    try
+    {
+        cpr::Header cprHeaders;
+        for (const auto& kv : headers)
+        {
+            cprHeaders.insert({kv.first, kv.second});
+        }
+
+        cpr::Response r = cpr::Get(
+            cpr::Url{url},
+            cprHeaders,
+            cpr::AcceptEncoding{cpr::AcceptEncodingMethods::gzip}
+        );
+
+        response = r.text;
+        return r.status_code >= 200 && r.status_code < 300;
+    }
+    catch (const std::exception&)
     {
         return false;
     }
-    struct curl_slist* headerList = NULL;
-    for (const auto& kv : headers)
-    {
-        std::string header = kv.first + ": " + kv.second;
-        headerList = curl_slist_append(headerList, header.c_str());
-    }
-    curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headerList);
-    curl_easy_setopt(curl, CURLOPT_URL, url);
-    curl_easy_setopt(curl, CURLOPT_ACCEPT_ENCODING, "gzip");
-    curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, false);
-    curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, false);
-    curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, true);
-    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, req_reply);
-    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
-    curl_easy_setopt(curl, CURLOPT_HEADER, false);
-    curl_easy_setopt(curl, CURLOPT_NOBODY, false);
-    curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 10);
-    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 10);
-
-    res = curl_easy_perform(curl);
-
-    curl_slist_free_all(headerList);
-    if (res != CURLE_OK)
-    {
-        return false;
-    }
-    return true;
 }
 
-bool HttpClient::PostRequest(std::string& response, const char* url, const std::string& postParams, std::map<std::string, std::string> headers, bool header)
+bool HttpClient::PostRequest(std::string& response, const char* url, const std::string& postParams,
+                              std::map<std::string, std::string> headers, bool header)
 {
-    CURLcode res{};
-    if (!curl)
+    try
+    {
+        cpr::Header cprHeaders;
+        for (const auto& kv : headers)
+        {
+            cprHeaders.insert({kv.first, kv.second});
+        }
+
+        cpr::Response r = cpr::Post(
+            cpr::Url{url},
+            cprHeaders,
+            cpr::Body{postParams}
+        );
+
+        if (header)
+        {
+            // 如果需要返回 header，手动构建
+            std::ostringstream oss;
+            for (const auto& [key, value] : r.header)
+            {
+                oss << key << ": " << value << "\r\n";
+            }
+            response = oss.str();
+        }
+        else
+        {
+            response = r.text;
+        }
+
+        return r.status_code >= 200 && r.status_code < 300;
+    }
+    catch (const std::exception&)
     {
         return false;
     }
-    struct curl_slist* headerList = NULL;
-    for (const auto& kv : headers)
-    {
-        std::string header = kv.first + ": " + kv.second;
-        headerList = curl_slist_append(headerList, header.c_str());
-    }
-    curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headerList);
-
-    curl_easy_setopt(curl, CURLOPT_HEADER, 0);
-    //设置请求为post请求
-    curl_easy_setopt(curl, CURLOPT_POST, 1);
-    curl_easy_setopt(curl, CURLOPT_URL, url);
-    curl_easy_setopt(curl, CURLOPT_POSTFIELDS, postParams.c_str());
-    curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, false);
-    curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, false);
-    curl_easy_setopt(curl, CURLOPT_VERBOSE, 0);
-    curl_easy_setopt(curl, CURLOPT_READFUNCTION, NULL);
-    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, req_reply);
-    curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void*)&response);
-    curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1);
-    curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 10);
-    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 10);
-    curl_easy_setopt(curl, CURLOPT_HEADER, header);
-
-    res = curl_easy_perform(curl);
-
-    curl_slist_free_all(headerList);
-    if (res != CURLE_OK)
-    {
-        return false;
-    }
-    return true;
 }

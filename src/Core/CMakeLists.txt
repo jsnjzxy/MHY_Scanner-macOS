@@ -35,7 +35,6 @@ set_source_files_properties(${OBJCPP_SOURCES} PROPERTIES
 target_include_directories(MHY_Scanner_Core PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/../..
-    ${CMAKE_SOURCE_DIR}/3rdparty/boost
 )
 
 # OpenSSL 链接 (通过 vcpkg)
