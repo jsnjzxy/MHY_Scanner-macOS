@@ -2,7 +2,7 @@
 
 MHY扫码登录器（mac版本），支持从直播流抢码。
 
-<img width="1000" height="1256" alt="image" src="https://github.com/user-attachments/assets/8ba6965f-9ab6-4ec0-960b-848621ec2ea0" />
+<img width="250" height="314" alt="image" src="https://github.com/user-attachments/assets/8ba6965f-9ab6-4ec0-960b-848621ec2ea0" />
 
 
 ### **版本 - v1.1.15**
