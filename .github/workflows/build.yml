@@ -35,6 +35,10 @@ jobs:
     - name: Install build dependencies
       run: |
         brew install cmake ninja pkg-config autoconf automake libtool
+        # libtool 安装后命令是 glibtoolize，创建软链接兼容脚本
+        if [ ! -f "$(brew --prefix)/bin/libtoolize" ]; then
+          ln -sf "$(brew --prefix)/bin/glibtoolize" "$(brew --prefix)/bin/libtoolize"
+        fi
 
     - name: Setup vcpkg
       run: |
