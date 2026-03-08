@@ -16,10 +16,6 @@ jobs:
       matrix:
         arch: [arm64, x64]
 
-    env:
-      VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}/vcpkg-cache
-      X_VCPKG_ASSET_SOURCES: x-azurl,https://mirrors.tuna.tsinghua.edu.cn/vcpkg/assets/
-
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -27,8 +23,8 @@ jobs:
     - name: Setup vcpkg cache
       uses: actions/cache@v4
       with:
-        path: ${{ github.workspace }}/vcpkg-cache
-        key: ${{ runner.os }}-vcpkg-${{ matrix.arch }}-${{ hashFiles('scripts/build_mac_vcpkg.sh') }}
+        path: ~/.vcpkg/cache
+        key: ${{ runner.os }}-vcpkg-${{ matrix.arch }}-${{ hashFiles('vcpkg.json') }}
         restore-keys: |
           ${{ runner.os }}-vcpkg-${{ matrix.arch }}-
 
@@ -39,8 +35,6 @@ jobs:
         if [ ! -f "$(brew --prefix)/bin/libtoolize" ]; then
           ln -sf "$(brew --prefix)/bin/glibtoolize" "$(brew --prefix)/bin/libtoolize"
         fi
-        # 确保 vcpkg 缓存目录存在
-        mkdir -p "${{ github.workspace }}/vcpkg-cache"
 
     - name: Setup vcpkg
       run: |
