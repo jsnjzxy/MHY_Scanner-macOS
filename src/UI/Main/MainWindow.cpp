@@ -42,7 +42,7 @@ MainWindow::MainWindow(QWidget* parent) :
         windowAbout.exec();
     });
     connect(ui.action2_2, &QAction::triggered, this, []() {
-        QDesktopServices::openUrl(QUrl("https://github.com/Theresa-0328/MHY_Scanner/issues"));
+        QDesktopServices::openUrl(QUrl("https://github.com/jsnjzxy/MHY_Scanner-macOS/issues"));
     });
     connect(ui.action1_5, &QAction::triggered, this, []() {
         // macOS: 使用与 ConfigDate 相同的路径逻辑

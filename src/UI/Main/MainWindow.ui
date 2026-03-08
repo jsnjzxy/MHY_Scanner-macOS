@@ -261,7 +261,7 @@
       <item>
        <widget class="QLabel" name="label">
         <property name="text">
-         <string>&lt;a href=&quot;https://github.com/Theresa-0328/MHY_Scanner&quot;&gt;https://github.com/Theresa-0328/MHY_Scanner</string>
+         <string>&lt;a href=&quot;https://github.com/jsnjzxy/MHY_Scanner-macOS&quot;&gt;https://github.com/jsnjzxy/MHY_Scanner-macOS</string>
         </property>
         <property name="scaledContents">
          <bool>false</bool>
