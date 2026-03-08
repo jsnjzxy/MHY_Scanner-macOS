@@ -1,0 +1,98 @@
+name: Build macOS
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build on macOS ${{ matrix.arch }}
+    runs-on: macos-15
+
+    strategy:
+      matrix:
+        arch: [arm64, x64]
+
+    env:
+      VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}/vcpkg-cache
+      X_VCPKG_ASSET_SOURCES: x-azurl,https://mirrors.tuna.tsinghua.edu.cn/vcpkg/assets/
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup vcpkg cache
+      uses: actions/cache@v4
+      with:
+        path: ${{ github.workspace }}/vcpkg-cache
+        key: ${{ runner.os }}-vcpkg-${{ matrix.arch }}-${{ hashFiles('scripts/build_mac_vcpkg.sh') }}
+        restore-keys: |
+          ${{ runner.os }}-vcpkg-${{ matrix.arch }}-
+
+    - name: Install build dependencies
+      run: |
+        brew install cmake ninja pkg-config autoconf automake libtool
+
+    - name: Setup vcpkg
+      run: |
+        if [ ! -d "$HOME/vcpkg" ]; then
+          git clone https://github.com/microsoft/vcpkg.git "$HOME/vcpkg"
+          "$HOME/vcpkg/bootstrap-vcpkg.sh" -disableMetrics
+        fi
+        echo "VCPKG_ROOT=$HOME/vcpkg" >> $GITHUB_ENV
+        echo "$HOME/vcpkg" >> $GITHUB_PATH
+
+    - name: Build project (Release)
+      run: |
+        export VCPKG_ROOT="$HOME/vcpkg"
+        chmod +x scripts/build_mac_vcpkg.sh
+        ./scripts/build_mac_vcpkg.sh Release
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: MHY_Scanner-macOS-${{ matrix.arch }}-Release
+        path: Release_build/bin/**/MHY_Scanner.app
+        retention-days: 7
+
+  release:
+    name: Create Release
+    needs: build
+    runs-on: macos-15
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Download artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: artifacts
+
+    - name: Create DMG packages
+      run: |
+        for app in artifacts/*/MHY_Scanner.app; do
+          if [ -d "$app" ]; then
+            appname=$(basename "$app")
+            appdir=$(dirname "$app")
+            arch=$(basename "$appdir" | cut -d- -f3)
+
+            hdiutil create -volname "MHY_Scanner" \
+              -srcfolder "$app" \
+              -ov -format UDZO \
+              "MHY_Scanner-macOS-${arch}.dmg"
+          fi
+        done
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v2
+      with:
+        files: MHY_Scanner-macOS-*.dmg
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
