@@ -3,6 +3,5 @@
   "default-registry": {
     "kind": "builtin",
     "baseline": ""
-  },
-  "overlay-ports": ["./3rdparty/abogus_cpp"]
+  }
 }
