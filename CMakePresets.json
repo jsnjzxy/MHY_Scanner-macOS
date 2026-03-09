@@ -6,17 +6,15 @@
       "description": "macOS 基础配置",
       "hidden": true,
       "generator": "Ninja Multi-Config",
-      "binaryDir": "${sourceDir}/build",
-      "installDir": "${sourceDir}/build/install",
+      "binaryDir": "${sourceDir}/${presetName}_build",
       "cacheVariables": {
-        "CMAKE_OSX_DEPLOYMENT_TARGET": "13.0",
-        "CMAKE_OSX_ARCHITECTURES": "arm64",
-        "CMAKE_C_COMPILER": "clang",
-        "CMAKE_CXX_COMPILER": "clang++",
-        "CMAKE_PREFIX_PATH": "/opt/homebrew;/usr/local",
-        "INSTALL_GTEST": false,
-        "DEV": true,
-        "MHY_SCAN_PLATFORM": "macOS"
+        "CMAKE_OSX_DEPLOYMENT_TARGET": "15.0",
+        "CMAKE_CXX_STANDARD": "23",
+        "CMAKE_OBJCXX_STANDARD": "23",
+        "CMAKE_AUTOUIC": "ON",
+        "CMAKE_AUTOMOC": "ON",
+        "CMAKE_AUTORCC": "ON",
+        "CMAKE_MAKE_PROGRAM": "ninja"
       },
       "condition": {
         "type": "equals",
@@ -32,6 +30,16 @@
       "cacheVariables": {
         "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
         "VCPKG_TARGET_TRIPLET": "arm64-osx"
+      }
+    },
+    {
+      "name": "macos-vcpkg-ci",
+      "description": "macOS CI 构建配置（使用已安装的 vcpkg 包）",
+      "hidden": true,
+      "inherits": "macos-base",
+      "cacheVariables": {
+        "CMAKE_PREFIX_PATH": "$env{VCPKG_INSTALLED_DIR}/arm64-osx",
+        "CMAKE_FIND_ROOT_PATH": "$env{VCPKG_INSTALLED_DIR}/arm64-osx"
       }
     },
     {
@@ -60,6 +68,24 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "RelWithDebInfo"
       }
+    },
+    {
+      "name": "Debug-CI",
+      "displayName": "Debug (CI)",
+      "description": "macOS 调试构建 (CI, 使用已安装包)",
+      "inherits": "macos-vcpkg-ci",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
+    },
+    {
+      "name": "Release-CI",
+      "displayName": "Release (CI)",
+      "description": "macOS 发布构建 (CI, 使用已安装包)",
+      "inherits": "macos-vcpkg-ci",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
     }
   ],
   "buildPresets": [
@@ -80,6 +106,18 @@
       "displayName": "RelWithDebInfo",
       "configurePreset": "RelWithDebInfo",
       "configuration": "RelWithDebInfo"
+    },
+    {
+      "name": "Debug-CI",
+      "displayName": "Debug (CI)",
+      "configurePreset": "Debug-CI",
+      "configuration": "Debug"
+    },
+    {
+      "name": "Release-CI",
+      "displayName": "Release (CI)",
+      "configurePreset": "Release-CI",
+      "configuration": "Release"
     }
   ]
 }

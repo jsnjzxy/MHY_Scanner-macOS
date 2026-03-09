@@ -12,8 +12,15 @@ _deps/
 build/
 Release_build/
 Debug_build/
+RelWithDebInfo_build/
 out/
 *.build/
+
+# Ninja build files
+*.ninja
+*.ninja_deps
+*.ninja_log
+build-*.ninja
 
 # vcpkg
 vcpkg_installed/
