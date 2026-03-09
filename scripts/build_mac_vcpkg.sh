@@ -16,9 +16,11 @@ if [ -f "$ENV_FILE" ]; then
 fi
 
 # ========================================
-# 配置 vcpkg 镜像（加速下载）
+# 配置 vcpkg 镜像（仅在本地环境使用，GitHub Actions 使用默认源）
 # ========================================
-export X_VCPKG_ASSET_SOURCES="x-azurl,https://mirrors.tuna.tsinghua.edu.cn/vcpkg/assets/"
+if [ -z "$GITHUB_ACTIONS" ]; then
+    export X_VCPKG_ASSET_SOURCES="x-azurl,https://mirrors.tuna.tsinghua.edu.cn/vcpkg/assets/"
+fi
 
 # ========================================
 # 配置 vcpkg 二进制缓存（加速编译）

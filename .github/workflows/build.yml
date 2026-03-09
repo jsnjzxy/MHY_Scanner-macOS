@@ -20,38 +20,25 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Setup vcpkg cache
-      uses: actions/cache@v4
-      with:
-        path: ~/.vcpkg/cache
-        key: ${{ runner.os }}-vcpkg-${{ matrix.arch }}-${{ hashFiles('vcpkg.json') }}
-        restore-keys: |
-          ${{ runner.os }}-vcpkg-${{ matrix.arch }}-
-
     - name: Install build dependencies
       run: |
-        brew install cmake ninja pkg-config autoconf automake libtool
+        brew install cmake ninja pkg-config autoconf autoconf-archive automake libtool
         # libtool 安装后命令是 glibtoolize，创建软链接兼容脚本
         if [ ! -f "$(brew --prefix)/bin/libtoolize" ]; then
           ln -sf "$(brew --prefix)/bin/glibtoolize" "$(brew --prefix)/bin/libtoolize"
         fi
 
-    - name: Setup vcpkg
-      run: |
-        if [ ! -d "$HOME/vcpkg" ]; then
-          git clone --depth=1 https://github.com/microsoft/vcpkg.git "$HOME/vcpkg"
-          "$HOME/vcpkg/bootstrap-vcpkg.sh" -disableMetrics
-        fi
-        echo "VCPKG_ROOT=$HOME/vcpkg" >> $GITHUB_ENV
-        echo "$HOME/vcpkg" >> $GITHUB_PATH
+    - name: Run vcpkg
+      uses: lukka/run-vcpkg@v11
+      with:
+        vcpkgJsonGlob: 'vcpkg.json'
 
     - name: Build project (Release)
       run: |
-        export VCPKG_ROOT="$HOME/vcpkg"
-        # 创建 vcpkg 缓存目录（脚本会用到）
-        mkdir -p "$HOME/.vcpkg/cache"
         chmod +x scripts/build_mac_vcpkg.sh
         ./scripts/build_mac_vcpkg.sh Release
+      env:
+        VCPKG_ROOT: ${{ github.workspace }}/vcpkg
 
     - name: Upload artifact
       uses: actions/upload-artifact@v4
