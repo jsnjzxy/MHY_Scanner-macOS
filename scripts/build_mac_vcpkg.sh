@@ -3,6 +3,8 @@
 
 set -e
 
+echo "DEBUG: Immediately after script start, VCPKG_ROOT='$VCPKG_ROOT'"
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 # ========================================
@@ -10,9 +12,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # ========================================
 ENV_FILE="$SCRIPT_DIR/.env.local"
 if [ -f "$ENV_FILE" ]; then
+    echo "DEBUG: Found .env.local, sourcing it..."
     set -a
     source "$ENV_FILE" 2>/dev/null || true
     set +a
+    echo "DEBUG: After sourcing .env.local, VCPKG_ROOT='$VCPKG_ROOT'"
 fi
 
 # ========================================
