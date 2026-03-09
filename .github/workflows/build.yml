@@ -29,6 +29,10 @@ jobs:
         fi
 
     - name: Run vcpkg
+      env:
+        VCPKG_MAX_CONCURRENCY: 2
+        VCPKG_BUILD_TYPE: release
+        MAKEFLAGS: "-j2"
       uses: lukka/run-vcpkg@v11
       with:
         vcpkgJsonGlob: 'vcpkg.json'
