@@ -3,7 +3,8 @@
 
 set -e
 
-echo "DEBUG: Immediately after script start, VCPKG_ROOT='$VCPKG_ROOT'"
+# 保存当前的 VCPKG_ROOT 值（如果已设置）
+SAVED_VCPKG_ROOT="$VCPKG_ROOT"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
@@ -12,11 +13,15 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # ========================================
 ENV_FILE="$SCRIPT_DIR/.env.local"
 if [ -f "$ENV_FILE" ]; then
-    echo "DEBUG: Found .env.local, sourcing it..."
     set -a
     source "$ENV_FILE" 2>/dev/null || true
     set +a
-    echo "DEBUG: After sourcing .env.local, VCPKG_ROOT='$VCPKG_ROOT'"
+fi
+
+# 如果在 GitHub Actions 中且之前已经设置了 VCPKG_ROOT，恢复它
+# 这样可以避免 .env.local 中的本地设置覆盖 CI 的配置
+if [ -n "$GITHUB_ACTIONS" ] && [ -n "$SAVED_VCPKG_ROOT" ]; then
+    export VCPKG_ROOT="$SAVED_VCPKG_ROOT"
 fi
 
 # ========================================
@@ -77,9 +82,6 @@ check_dependencies() {
 # 检查 vcpkg
 # ========================================
 check_vcpkg() {
-    echo "DEBUG: check_vcpkg called"
-    echo "DEBUG: VCPKG_ROOT='$VCPKG_ROOT'"
-    echo "DEBUG: HOME='$HOME'"
     if [ -z "$VCPKG_ROOT" ]; then
         echo "=========================================="
         echo "错误: VCPKG_ROOT 环境变量未设置"
@@ -105,7 +107,6 @@ check_vcpkg() {
 echo "=========================================="
 echo "MHY_Scanner macOS vcpkg 构建脚本"
 echo "=========================================="
-echo "DEBUG: Script start VCPKG_ROOT='$VCPKG_ROOT'"
 
 check_dependencies
 check_vcpkg
