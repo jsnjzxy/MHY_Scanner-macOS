@@ -29,7 +29,6 @@ jobs:
         fi
 
     - name: Run vcpkg
-      id: runvcpkg
       uses: lukka/run-vcpkg@v11
       with:
         vcpkgJsonGlob: 'vcpkg.json'
@@ -39,7 +38,7 @@ jobs:
         chmod +x scripts/build_mac_vcpkg.sh
         ./scripts/build_mac_vcpkg.sh Release
       env:
-        VCPKG_ROOT: ${{ steps.runvcpkg.outputs.RUNVCPKG_VCPKG_ROOT }}
+        VCPKG_ROOT: ${{ github.workspace }}/vcpkg
 
     - name: Upload artifact
       uses: actions/upload-artifact@v4
