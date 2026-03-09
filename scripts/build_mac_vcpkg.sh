@@ -73,6 +73,9 @@ check_dependencies() {
 # 检查 vcpkg
 # ========================================
 check_vcpkg() {
+    echo "DEBUG: check_vcpkg called"
+    echo "DEBUG: VCPKG_ROOT='$VCPKG_ROOT'"
+    echo "DEBUG: HOME='$HOME'"
     if [ -z "$VCPKG_ROOT" ]; then
         echo "=========================================="
         echo "错误: VCPKG_ROOT 环境变量未设置"
@@ -98,6 +101,7 @@ check_vcpkg() {
 echo "=========================================="
 echo "MHY_Scanner macOS vcpkg 构建脚本"
 echo "=========================================="
+echo "DEBUG: Script start VCPKG_ROOT='$VCPKG_ROOT'"
 
 check_dependencies
 check_vcpkg
