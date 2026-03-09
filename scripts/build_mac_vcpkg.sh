@@ -166,6 +166,7 @@ cmake -S "$SCRIPT_DIR" -B "$BUILD_DIR" \
     -DCMAKE_BUILD_TYPE="$BUILD_TYPE" \
     -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" \
     -DVCPKG_TARGET_TRIPLET="$TRIPLET" \
+    -DCMAKE_MAKE_PROGRAM=ninja \
     -G "Ninja Multi-Config"
 
 if [ $? -ne 0 ]; then

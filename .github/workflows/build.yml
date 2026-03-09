@@ -36,6 +36,8 @@ jobs:
     - name: Build project (Release)
       run: |
         export VCPKG_ROOT="${GITHUB_WORKSPACE}/vcpkg"
+        # 创建 vcpkg 二进制缓存目录
+        mkdir -p "$HOME/.vcpkg/cache"
         chmod +x scripts/build_mac_vcpkg.sh
         ./scripts/build_mac_vcpkg.sh Release
 
