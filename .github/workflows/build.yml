@@ -35,6 +35,9 @@ jobs:
 
     - name: Build project (Release)
       run: |
+        echo "GITHUB_WORKSPACE=$GITHUB_WORKSPACE"
+        echo "VCPKG_ROOT=$VCPKG_ROOT"
+        echo "HOME=$HOME"
         chmod +x scripts/build_mac_vcpkg.sh
         ./scripts/build_mac_vcpkg.sh Release
       env:
