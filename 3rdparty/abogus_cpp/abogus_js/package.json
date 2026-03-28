@@ -1,0 +1,22 @@
+{
+  "name": "abogus",
+  "private": true,
+  "description": "抖音 a_bogus 签名，供 MHY_Scanner 调用",
+  "bin": "get_abogus_node.js",
+  "dependencies": {
+    "linkedom": "^0.18.12"
+  },
+  "pkg": {
+    "scripts": [
+      "a_bogus.js",
+      "node_modules/**/*.js"
+    ],
+    "assets": [
+      "node_modules/**/*"
+    ],
+    "targets": [
+      "node18-macos-arm64"
+    ],
+    "outputPath": "get_abogus_pkg"
+  }
+}

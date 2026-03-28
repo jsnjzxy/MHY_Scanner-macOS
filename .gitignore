@@ -108,8 +108,9 @@ logs/
 *.tar.gz
 *.zip
 
-# vcpkg artifacts
-3rdparty/abogus_cpp/
+# vcpkg artifacts / abogus_cpp build artifacts
+3rdparty/abogus_cpp/abogus_js/get_abogus
+3rdparty/abogus_cpp/abogus_js/node_modules/
 
 # Homebrew
 Brewfile.lock.json
