@@ -35,6 +35,10 @@ cd ~/vcpkg
 
 # 设置环境变量 (添加到 ~/.zshrc)
 export VCPKG_ROOT=~/vcpkg
+
+# 可选：启用二进制缓存加速构建
+export VCPKG_DEFAULT_BINARY_CACHE=~/.vcpkg/cache
+mkdir -p $VCPKG_DEFAULT_BINARY_CACHE
 ```
 
 ## 可选：加速下载
@@ -55,12 +59,6 @@ export X_VCPKG_ASSET_SOURCES="x-azurl,https://mirrors.tuna.tsinghua.edu.cn/vcpkg
 构建完成后，应用位于：
 ```
 Release_build/bin/Release/MHY_Scanner.app
-```
-
-## DMG 打包
-
-```bash
-./scripts/package_dmg.sh Release
 ```
 
 ## 抖音直播间环境（可选）
@@ -100,8 +98,7 @@ vcpkg list opencv
 ```bash
 # 给脚本添加执行权限
 chmod +x scripts/build_mac_vcpkg.sh
-chmod +x scripts/package_dmg.sh
-chmod +x scripts/check_deps.sh
+chmod +x scripts/local-ci.sh
 ```
 
 ## 依赖说明
@@ -129,18 +126,16 @@ chmod +x scripts/check_deps.sh
 ```json
 {
   "name": "mhy-scanner",
-  "version": "1.1.15",
   "dependencies": [
     { "name": "qtbase", "features": ["dbus", "gui", "widgets"] },
     { "name": "qtdeclarative" },
     { "name": "qtquickcontrols2" },
     { "name": "qtwebchannel" },
     { "name": "qtmultimedia" },
-    { "name": "opencv1.1.15" },
+    { "name": "opencv" },
     { "name": "ffmpeg", "features": ["avcodec", "avdevice", "avfilter", "avformat", "swresample", "swscale"] },
     { "name": "curl", "features": ["ssl"] },
     { "name": "openssl" },
-    { "name": "gtest" },
     { "name": "nlohmann-json" }
   ]
 }

@@ -20,8 +20,7 @@ MHY_Scanner/
 ├── Brewfile                            # macOS 构建工具
 ├── scripts/                            # 构建脚本
 │   ├── build_mac_vcpkg.sh            # macOS 构建脚本
-│   ├── package_dmg.sh                # DMG 打包脚本
-│   └── check_deps.sh                 # 依赖检查脚本
+│   └── local-ci.sh                   # 本地 CI 验证脚本
 ├── src/
 │   ├── Core/                           # 核心库
 │   │   ├── Common/                    # 公共定义
@@ -109,7 +108,6 @@ MHY_Scanner/
 ### 其他依赖
 - **nlohmann-json**: JSON 数据处理
 - **nayuki-qr-code-generator**: QR 码生成
-- **GTest**: 单元测试框架（可选）
 
 ### macOS 系统框架
 - **Vision**: 视觉识别
@@ -130,7 +128,6 @@ MHY_Scanner/
 ```json
 {
   "name": "mhy-scanner",
-  "version": "1.1.15",
   "dependencies": [
     { "name": "qtbase", "features": ["dbus", "gui", "widgets"] },
     { "name": "qtdeclarative" },
@@ -141,7 +138,6 @@ MHY_Scanner/
     { "name": "ffmpeg", "features": ["avcodec", "avdevice", "avfilter", "avformat", "swresample", "swscale"] },
     { "name": "curl", "features": ["ssl"] },
     { "name": "openssl" },
-    { "name": "gtest" },
     { "name": "nlohmann-json" }
   ]
 }

@@ -92,7 +92,7 @@ int main(int argc, char* argv[])
 
     // 设置应用属性
     a.setApplicationName("MHY_Scanner");
-    a.setApplicationVersion("1.1.15");
+    a.setApplicationVersion(SCAN_VER);
     a.setOrganizationName("MHY");
 
     if (isOpen())

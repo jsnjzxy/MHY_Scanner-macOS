@@ -1,7 +1,6 @@
 {
   "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
   "name": "mhy-scanner",
-  "version": "1.1.15",
   "description": "MHY game QR code scanner",
   "license": "MIT",
   "supports": "(windows | linux | osx)",
@@ -28,9 +27,6 @@
     },
     {
       "name": "openssl"
-    },
-    {
-      "name": "gtest"
     },
     {
       "name": "nlohmann-json"

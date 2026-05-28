@@ -5,8 +5,6 @@ MHY扫码登录器（mac版本），支持从直播流抢码。
 <img width="250" height="314" alt="image" src="https://github.com/user-attachments/assets/8ba6965f-9ab6-4ec0-960b-848621ec2ea0" />
 
 
-### **版本 - v1.1.15**
-
 ## 重要提醒
 
 最近在闲鱼等地发现有人在卖这个项目，希望没有人真的傻逼到花钱买免费的代码。如果你是购买来的，说明你被骗了，建议联系商家退款。最后，如果你真的想卖本项目赚钱，<a href="https://www.baidu.com/s?wd=%E5%AD%A4%E5%84%BF%E6%80%8E%E4%B9%88%E5%8A%9E%E6%88%B7%E5%8F%A3%E6%9C%AC">请点这里了解</a>
@@ -61,12 +59,6 @@ MHY扫码登录器（mac版本），支持从直播流抢码。
 构建完成后，应用位于 `Release_build/bin/Release/MHY_Scanner.app`
 
 详见 [完整构建文档](docs/BUILDING.md)
-
-## DMG 打包
-
-```bash
-./scripts/package_dmg.sh Release
-```
 
 ## 抖音直播间环境（可选）
 
