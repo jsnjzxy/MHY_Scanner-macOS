@@ -27,6 +27,12 @@ option(DEV "DEV" OFF)
 message(STATUS "Platform: macOS")
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 
+# 开发模式启用代理支持（用于抓包调试）
+if(DEV)
+    message(STATUS "DEV mode: enabled (proxy support for debugging)")
+    add_compile_definitions(ENABLE_PROXY)
+endif()
+
 # Apple Clang: 忽略废弃警告
 add_compile_options(-Wno-deprecated-declarations)
 

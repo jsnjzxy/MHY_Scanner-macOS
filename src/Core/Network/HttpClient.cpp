@@ -1,7 +1,16 @@
 #include "HttpClient.h"
 
 #include <sstream>
+#include <cstdlib>
 #include <cpr/api.h>
+
+#ifdef ENABLE_PROXY
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <fcntl.h>
+#include <unistd.h>
+#endif
 
 HttpClient::HttpClient()
 {
@@ -10,6 +19,47 @@ HttpClient::HttpClient()
     session.SetRedirect(cpr::Redirect(true));  // 对应 FOLLOWLOCATION=true
     session.SetConnectTimeout(cpr::ConnectTimeout(std::chrono::milliseconds(10000)));
     session.SetTimeout(cpr::Timeout(std::chrono::milliseconds(10000)));
+
+#ifdef ENABLE_PROXY
+    // 开发模式：自动检测本地代理（Charles/Surge/Clash 等）
+    auto checkLocalProxy = [](int port) -> bool {
+        int sock = socket(AF_INET, SOCK_STREAM, 0);
+        if (sock < 0) return false;
+
+        struct sockaddr_in addr;
+        addr.sin_family = AF_INET;
+        addr.sin_port = htons(port);
+        addr.sin_addr.s_addr = inet_addr("127.0.0.1");
+
+        // 非阻塞连接测试
+        fcntl(sock, F_SETFL, O_NONBLOCK);
+        connect(sock, (struct sockaddr*)&addr, sizeof(addr));
+
+        fd_set fdset;
+        struct timeval tv;
+        FD_ZERO(&fdset);
+        FD_SET(sock, &fdset);
+        tv.tv_sec = 0;
+        tv.tv_usec = 100000;  // 100ms 超时
+
+        bool available = select(sock + 1, nullptr, &fdset, nullptr, &tv) > 0;
+        close(sock);
+        return available;
+    };
+
+    // 检测常用代理端口: Charles(8888), Surge(6152), Clash(7890), Whistle(8899)
+    std::string proxyUrl;
+    for (int port : {8888, 6152, 7890, 8899}) {
+        if (checkLocalProxy(port)) {
+            proxyUrl = "http://127.0.0.1:" + std::to_string(port);
+            break;
+        }
+    }
+
+    if (!proxyUrl.empty()) {
+        session.SetProxies(cpr::Proxies{{"http", proxyUrl}, {"https", proxyUrl}});
+    }
+#endif
 }
 
 std::string HttpClient::MapToQueryString(const std::map<std::string, std::string>& params)
