@@ -65,8 +65,13 @@ endif()
 # ========================================
 
 # nayuki-qr-code-generator (通过 vcpkg)
-# 根据架构确定静态库 triplet
-if(CMAKE_SYSTEM_PROCESSOR MATCHES "arm64|aarch64")
+# 根据目标架构确定静态库 triplet
+# 交叉编译时使用 CMAKE_OSX_ARCHITECTURES 或 VCPKG_TARGET_TRIPLET
+if(DEFINED ENV{VCPKG_TARGET_TRIPLET})
+    set(STATIC_TRIPLET "$ENV{VCPKG_TARGET_TRIPLET}")
+elseif(CMAKE_OSX_ARCHITECTURES MATCHES "x86_64")
+    set(STATIC_TRIPLET "x64-osx")
+elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "arm64|aarch64")
     set(STATIC_TRIPLET "arm64-osx")
 else()
     set(STATIC_TRIPLET "x64-osx")
