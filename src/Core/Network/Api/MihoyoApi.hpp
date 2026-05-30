@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #include <string>
 #include <string_view>
@@ -6,6 +6,7 @@
 #include <random>
 #include <sstream>
 #include <optional>
+#include <iostream>
 
 #include <nlohmann/json.hpp>
 
@@ -22,7 +23,8 @@ enum class QRCodeState : uint8_t
     Init = 0,
     Scanned = 1,
     Confirmed = 2,
-    Expired = 3
+    Expired = 3,
+    Cancelled = 4
 };
 
 constinit const std::string_view mihoyobbs_salt{ "oqrJbPCoFhWhFBNDvVRuldbrbiVxyWsP" };
@@ -31,7 +33,7 @@ constinit const std::string_view mihoyobbs_salt_web{ "zZDfHqEcwTqvvKDmqRcHyqqurx
 constinit const std::string_view mihoyobbs_salt_x4{ "xV8v4Qu54lUKrEYFZkJhB8cuOh9Asafs" };
 constinit const std::string_view mihoyobbs_salt_x6{ "t0qEgfub6cvueAPgR5m9aQWWVciEer7v" };
 
-constinit const std::string_view mihoyobbs_version{ "2.75.2" };
+constinit const std::string_view mihoyobbs_version{ "2.76.1" };
 
 static const std::string device_id{ CreateUUID::CreateUUID4() };
 
@@ -65,74 +67,194 @@ inline std::map<std::string, std::string> GetRequestHeader()
         { "x-rpc-device_name", "" },
         { "x-rpc-game_biz", "bbs_cn" },
         { "x-rpc-sdk_version", "2.16.0" }
-
     };
     return header;
 }
 
 static GameType loginType{ GameType::TearsOfThemis };
 
-inline std::string GetLoginQrcodeUrl(const GameType type = loginType)
-{
-    HttpClient h;
-    std::string res;
-    h.PostRequest(res, MihoyoUrls::Hk4eQrcodeFetch, "{\"app_id\":" + std::to_string(static_cast<int>(type)) + ",\"device\":\"" + device_id + "\"}");
-    nlohmann::json j;
-    j = nlohmann::json::parse(res);
-    std::string QrcodeString{ static_cast<std::string>(j["data"]["url"]) };
-    replace0026WithAmpersand(QrcodeString);
-    return QrcodeString;
-}
+// ============================================
+// 米游社 Passport 登录 API
+// ============================================
 
-inline auto GetQRCodeState(
-    const std::string_view ticket,
-    const GameType type = loginType)
+// 创建二维码登录
+inline auto CreateQrcodeLogin()
 {
-    HttpClient h;
-    std::string res;
-    h.PostRequest(res, MihoyoUrls::Hk4eQrcodeQuery,
-                  "{\"app_id\":" + std::to_string(static_cast<int>(type)) + ",\"device\":\"" + device_id + "\",\"ticket\":\"" + std::string(ticket) + "\"}");
-    //std::cout << __LINE__ << res << std::endl;
-    nlohmann::json j;
-    j= nlohmann::json::parse(res);
     struct
     {
-        enum
-        {
-            Init = 0,
-            Scanned = 1,
-            Confirmed = 2,
-            Expired = 3
-        } StateType{};
         int retcode{};
-        std::string uid{};
-        std::string token{};
-    } result{};
-    if (static_cast<int>(j["retcode"]) == 0)
+        std::string url{};
+        std::string ticket{};
+    } result;
+
+    HttpClient h;
+    std::string res;
+    auto headers = GetRequestHeader();
+    h.PostRequest(res, MihoyoUrls::PassportQrcodeCreate, "{}", headers);
+
+    if (res.empty())
     {
-        if (static_cast<std::string>(j["data"]["stat"]) == "Init")
+        result.retcode = -9999;
+        return result;
+    }
+
+    try
+    {
+        nlohmann::json j = nlohmann::json::parse(res);
+        result.retcode = j.value("retcode", -9998);
+        if (result.retcode == 0 && j.contains("data"))
         {
-            result.StateType = result.Init;
-        }
-        else if (static_cast<std::string>(j["data"]["stat"]) == "Scanned")
-        {
-            result.StateType = result.Scanned;
-        }
-        else if (static_cast<std::string>(j["data"]["stat"]) == "Confirmed")
-        {
-            std::string str{ unescapeString(j["data"]["payload"]["raw"]) };
-            j= nlohmann::json::parse(str);
-            result.uid = j["uid"].get<std::string>();
-            result.token = j["token"].get<std::string>();
-            result.StateType = result.Confirmed;
+            result.url = j["data"].value("url", "");
+            result.ticket = j["data"].value("ticket", "");
+            replace0026WithAmpersand(result.url);
         }
     }
-    else //retcode == -106
+    catch (...)
     {
-        result.StateType = result.Expired;
+        result.retcode = -9997;
     }
     return result;
 }
+
+// 查询二维码扫码状态
+inline auto QueryQrcodeStatus(const std::string_view ticket)
+{
+    struct
+    {
+        int retcode{};
+        enum { Created, Scanned, Confirmed, Expired, Cancelled } status{};
+        std::string aid{};
+        std::string mid{};
+        std::string stoken{};
+    } result;
+
+    HttpClient h;
+    std::string res;
+    auto headers = GetRequestHeader();
+    h.PostRequest(res, MihoyoUrls::PassportQrcodeQuery,
+                  "{\"ticket\":\"" + std::string(ticket) + "\"}", headers);
+
+    if (res.empty())
+    {
+        result.retcode = -9999;
+        return result;
+    }
+
+    try
+    {
+        nlohmann::json j = nlohmann::json::parse(res);
+        result.retcode = j.value("retcode", -9998);
+
+        // 错误码处理
+        if (result.retcode == -3501)
+        {
+            result.status = result.Expired;
+            return result;
+        }
+        if (result.retcode == -3505)
+        {
+            result.status = result.Cancelled;
+            return result;
+        }
+
+        if (j.contains("data") && j["data"].is_object())
+        {
+            std::string statusStr = j["data"].value("status", "");
+            if (statusStr == "Created")
+            {
+                result.status = result.Created;
+            }
+            else if (statusStr == "Scanned")
+            {
+                result.status = result.Scanned;
+            }
+            else if (statusStr == "Confirmed")
+            {
+                result.status = result.Confirmed;
+
+                // 从 user_info 中获取用户信息
+                if (j["data"].contains("user_info") && j["data"]["user_info"].is_object())
+                {
+                    result.aid = j["data"]["user_info"].value("aid", "");
+                    result.mid = j["data"]["user_info"].value("mid", "");
+                }
+
+                // 获取 stoken
+                if (j["data"].contains("token") && j["data"]["token"].is_object())
+                {
+                    result.stoken = j["data"]["token"].value("token", "");
+                }
+            }
+        }
+    }
+    catch (...)
+    {
+        result.retcode = -9997;
+    }
+    return result;
+}
+
+// 扫描游戏二维码
+inline bool ScanGameQrcode(const std::string_view ticket, const std::string_view stoken, const std::string_view mid)
+{
+    HttpClient client;
+    auto headers = GetRequestHeader();
+    headers["Content-Type"] = "application/json";
+    headers["Cookie"] = "stoken=" + std::string(stoken) + "; mid=" + std::string(mid);
+
+    std::string requestBody = "{\"token_types\":[\"1\"],\"ticket\":\"" + std::string(ticket) + "\"}";
+    std::string response;
+
+    bool success = client.PostRequest(response, MihoyoUrls::PassportQrcodeScan, requestBody, headers);
+
+    if (!success || response.empty())
+    {
+        return false;
+    }
+
+    try
+    {
+        nlohmann::json j = nlohmann::json::parse(response);
+        return j["retcode"] == 0;
+    }
+    catch (...)
+    {
+        return false;
+    }
+}
+
+// 确认游戏二维码登录
+inline bool ConfirmGameQrcode(const std::string_view ticket, const std::string_view stoken, const std::string_view mid)
+{
+    HttpClient client;
+    auto headers = GetRequestHeader();
+    headers["Content-Type"] = "application/json";
+    headers["Cookie"] = "stoken=" + std::string(stoken) + "; mid=" + std::string(mid);
+
+    std::string requestBody = "{\"ticket\":\"" + std::string(ticket) + "\",\"token_types\":[\"1\"]}";
+    std::string response;
+
+    bool success = client.PostRequest(response, MihoyoUrls::PassportQrcodeConfirm, requestBody, headers);
+
+    if (!success || response.empty())
+    {
+        return false;
+    }
+
+    try
+    {
+        nlohmann::json j = nlohmann::json::parse(response);
+        return j["retcode"] == 0;
+    }
+    catch (...)
+    {
+        return false;
+    }
+}
+
+// ============================================
+// 用户信息 API
+// ============================================
 
 inline std::string getMysUserName(const std::string_view uid)
 {
@@ -140,11 +262,64 @@ inline std::string getMysUserName(const std::string_view uid)
     HttpClient h;
     std::string url = std::string(MihoyoUrls::MysUserinfo) + "?uid=" + std::string(uid);
     h.GetRequest(re, url.c_str());
-    nlohmann::json j;
-    j= nlohmann::json::parse(re);
-    re = j["data"]["user_info"]["nickname"].get<std::string>();
-    return re;
+
+    try
+    {
+        nlohmann::json j = nlohmann::json::parse(re);
+        if (j.value("retcode", -1) == 0 && j.contains("data"))
+        {
+            return j["data"]["user_info"].value("nickname", "未知用户");
+        }
+    }
+    catch (...) {}
+    return "未知用户";
 }
+
+// 获取 Cookie 账号信息
+inline auto GetCookieAccountInfo(const std::string_view stoken, const std::string_view mid)
+{
+    struct
+    {
+        int retcode{};
+        std::string account_id{};
+        std::string cookie_token{};
+    } result;
+
+    HttpClient client;
+    std::map<std::string, std::string> headers{
+        { "Cookie", "stoken=" + std::string(stoken) + "; mid=" + std::string(mid) },
+        { "x-rpc-app_id", "bll8iq97cem8" }
+    };
+
+    std::string response;
+    client.GetRequest(response, MihoyoUrls::GetCookieAccountInfo, headers);
+
+    if (response.empty())
+    {
+        result.retcode = -9999;
+        return result;
+    }
+
+    try
+    {
+        nlohmann::json j = nlohmann::json::parse(response);
+        result.retcode = j.value("retcode", -9998);
+        if (result.retcode == 0 && j.contains("data"))
+        {
+            result.account_id = j["data"].value("account_id", "");
+            result.cookie_token = j["data"].value("cookie_token", "");
+        }
+    }
+    catch (...)
+    {
+        result.retcode = -9997;
+    }
+    return result;
+}
+
+// ============================================
+// Token 转换 API
+// ============================================
 
 inline auto getStokenByGameToken(const std::string_view uid, const std::string_view game_token)
     -> std::optional<std::tuple<std::string, std::string>>
@@ -153,7 +328,7 @@ inline auto getStokenByGameToken(const std::string_view uid, const std::string_v
         { "x-rpc-app_id", "bll8iq97cem8" },
         { "Referer", "https://app.mihoyo.com" },
         { "User-Agent", "Mozilla/5.0 (Linux; Android 12; LIO-AN00 Build/TKQ1.220829.002; wv) AppleWebKit/537.36 (KHTML, like Gecko) "
-                        "Version/4.0 Chrome/103.0.5060.129 Mobile Safari/537.36 miHoYoBBS/2.67.1" }
+                        "Version/4.0 Chrome/103.0.5060.129 Mobile Safari/537.36 miHoYoBBS/2.76.1" }
     };
     std::string re;
     HttpClient h;
@@ -162,7 +337,7 @@ inline auto getStokenByGameToken(const std::string_view uid, const std::string_v
                   headers);
     re = UTF8_To_string(re);
     nlohmann::json j;
-    j= nlohmann::json::parse(re);
+    j = nlohmann::json::parse(re);
     if (static_cast<int>(j["retcode"]) == 0)
     {
         return std::make_optional(std::make_tuple(std::move(static_cast<std::string>(j["data"]["user_info"]["mid"])),
@@ -178,16 +353,15 @@ inline auto GetGameTokenByStoken(const std::string_view stoken, const std::strin
     -> std::optional<std::string>
 {
     HttpClient client;
-    std::map<std::string, std::string> params{
-        { "stoken", stoken.data() },
-        { "mid", mid.data() },
+    std::map<std::string, std::string> headers{
+        { "Cookie", "stoken=" + std::string(stoken) + "; mid=" + std::string(mid) },
+        { "x-rpc-app_id", "bll8iq97cem8" }
     };
     std::string s;
-    std::string url = std::string(MihoyoUrls::TakumiGameToken) + "?" + HttpClient::MapToQueryString(params);
-    client.GetRequest(s, url.c_str());
+    client.GetRequest(s, MihoyoUrls::TakumiGameToken, headers);
     const std::string& data = UTF8_To_string(s);
     nlohmann::json j;
-    j= nlohmann::json::parse(data);
+    j = nlohmann::json::parse(data);
     int retcode = j["retcode"];
     if (retcode == 0)
     {
@@ -195,6 +369,10 @@ inline auto GetGameTokenByStoken(const std::string_view stoken, const std::strin
     }
     return std::nullopt;
 }
+
+// ============================================
+// 加密工具
+// ============================================
 
 inline std::string Encrypt(const std::string_view source)
 {
@@ -209,6 +387,10 @@ inline std::string Encrypt(const std::string_view source)
     return rsaEncrypt(source.data(), PublicKey);
 }
 
+// ============================================
+// 手机验证码登录 API
+// ============================================
+
 inline auto CreateLoginCaptcha(const std::string_view mobile, const std::string_view aigis = "")
 {
     struct
@@ -219,60 +401,111 @@ inline auto CreateLoginCaptcha(const std::string_view mobile, const std::string_
         int mmt_type{};
         std::string gt{};
         std::string challenge{};
+        bool use_v4{false};
+        std::string risk_type{};
     } GeetestData;
-    const std::string RequestBody{  "{\"area_code\":\"" + Encrypt("+86") + "\",\"mobile\":\"" + Encrypt(mobile) + "\"}" };
+
+    const std::string RequestBody{ "{\"area_code\":\"" + Encrypt("+86") + "\",\"mobile\":\"" + Encrypt(mobile) + "\"}" };
     std::map<std::string, std::string> headers{ GetRequestHeader() };
     headers["DS"] = DataSignAlgorithmVersionGen2(RequestBody, "");
     if (!aigis.empty())
     {
         headers["X-Rpc-Aigis"] = aigis;
     }
+
     HttpClient h;
     std::string s;
     h.PostRequest(s, MihoyoUrls::PassportVerifier, RequestBody, headers, true);
-    //std::cout << s << std::endl;
+
+    // 解析响应
     std::string bodystr{};
-    if (size_t startPos = s.find_last_of("\n"); startPos != std::string::npos)
+    size_t bodyStart = s.find("\r\n\r\n");
+    if (bodyStart != std::string::npos)
     {
-        bodystr = s.substr(startPos + 1);
+        bodystr = s.substr(bodyStart + 4);
     }
-    nlohmann::json body{};
-    body= nlohmann::json::parse(bodystr);
-    GeetestData.retcode = body["retcode"];
-    if (GeetestData.retcode == 0)
+    else
     {
-        GeetestData.retcode = body["retcode"];
-        GeetestData.action_type = body["data"]["action_type"].get<std::string>();
+        bodyStart = s.find("\n\n");
+        if (bodyStart != std::string::npos)
+        {
+            bodystr = s.substr(bodyStart + 2);
+        }
+        else if (size_t startPos = s.find_last_of("\n"); startPos != std::string::npos)
+        {
+            bodystr = s.substr(startPos + 1);
+        }
+        else
+        {
+            bodystr = s;
+        }
     }
-    else if (GeetestData.retcode == -3006)
+
+    if (bodystr.empty())
     {
+        GeetestData.retcode = -9999;
         return GeetestData;
     }
-    else if (GeetestData.retcode == -3101)
-    {
-        constexpr std::string_view headerKey{ "X-Rpc-Aigis: " };
-        std::string Aigis;
-        if (size_t startPos = s.find(headerKey); startPos != std::string::npos)
-        {
-            startPos += headerKey.length();
-            size_t endPos = s.find("\n", startPos);
-            Aigis = s.substr(startPos, endPos - startPos);
-        }
-        nlohmann::json j1{};
-        j1= nlohmann::json::parse(Aigis);
-        std::string data = j1["data"].get<std::string>();
-        data = unescapeString(data);
-        nlohmann::json j2{};
-        j2= nlohmann::json::parse(data);
 
-        nlohmann::json body{};
-        body= nlohmann::json::parse(bodystr);
-        GeetestData.retcode = body["retcode"];
-        GeetestData.session_id = j1["session_id"].get<std::string>();
-        GeetestData.mmt_type = j1["mmt_type"];
-        GeetestData.gt = j2["gt"].get<std::string>();
-        GeetestData.challenge = j2["challenge"].get<std::string>();
+    try
+    {
+        nlohmann::json body = nlohmann::json::parse(bodystr);
+        GeetestData.retcode = body.value("retcode", -9997);
+
+        if (GeetestData.retcode == 0)
+        {
+            GeetestData.action_type = body["data"].value("action_type", "");
+        }
+        else if (GeetestData.retcode == -3101)
+        {
+            // 需要极验验证
+            constexpr std::string_view headerKey{ "X-Rpc-Aigis: " };
+            std::string Aigis;
+            if (size_t startPos = s.find(headerKey); startPos != std::string::npos)
+            {
+                startPos += headerKey.length();
+                size_t endPos = s.find("\n", startPos);
+                Aigis = s.substr(startPos, endPos - startPos);
+            }
+
+            if (!Aigis.empty())
+            {
+                try
+                {
+                    nlohmann::json j1 = nlohmann::json::parse(Aigis);
+                    if (j1.contains("data") && j1.contains("session_id"))
+                    {
+                        std::string data = j1["data"].get<std::string>();
+                        data = unescapeString(data);
+                        nlohmann::json j2 = nlohmann::json::parse(data);
+
+                        GeetestData.session_id = j1["session_id"].get<std::string>();
+                        GeetestData.mmt_type = j1.value("mmt_type", 0);
+                        GeetestData.use_v4 = j2.value("use_v4", false);
+
+                        if (j2.contains("gt"))
+                        {
+                            GeetestData.gt = j2["gt"].get<std::string>();
+                        }
+                        if (j2.contains("challenge"))
+                        {
+                            GeetestData.challenge = j2["challenge"].get<std::string>();
+                        }
+                        if (j2.contains("risk_type"))
+                        {
+                            GeetestData.risk_type = j2["risk_type"].get<std::string>();
+                        }
+                    }
+                }
+                catch (...) {}
+            }
+        }
     }
+    catch (...)
+    {
+        GeetestData.retcode = -9998;
+    }
+
     return GeetestData;
 }
 
@@ -288,19 +521,20 @@ inline auto LoginByMobileCaptcha(const std::string_view actionType, const std::s
             std::string mid{};
         } data;
     } result;
-    const std::string RequestBody{  "{\"area_code\":\"" + Encrypt("+86") + "\",\"action_type\":\"" + std::string(actionType) + "\",\"captcha\":\"" + std::string(captcha) + "\",\"mobile\":\"" + Encrypt(mobile) + "\"}" };
+
+    const std::string RequestBody{ "{\"area_code\":\"" + Encrypt("+86") + "\",\"action_type\":\"" + std::string(actionType) + "\",\"captcha\":\"" + std::string(captcha) + "\",\"mobile\":\"" + Encrypt(mobile) + "\"}" };
     std::map<std::string, std::string> headers{ GetRequestHeader() };
     headers["DS"] = DataSignAlgorithmVersionGen2(RequestBody, "");
     if (!aigis.empty())
     {
         headers["X-Rpc-Aigis"] = aigis;
     }
+
     HttpClient h;
     std::string s;
     h.PostRequest(s, MihoyoUrls::LoginByMobileCaptcha, RequestBody, headers);
-    //std::cout << s << std::endl;
-    nlohmann::json j{};
-    j= nlohmann::json::parse(s);
+
+    nlohmann::json j = nlohmann::json::parse(s);
     result.retcode = j["retcode"];
     if (result.retcode == -3205)
     {
@@ -313,42 +547,4 @@ inline auto LoginByMobileCaptcha(const std::string_view actionType, const std::s
         result.data.mid = j["data"]["user_info"]["mid"].get<std::string>();
     }
     return result;
-}
-
-inline bool ScanQRLogin(const std::string_view url, const std::string_view ticket, GameType gameType)
-{
-    std::string m_sacnRet{};
-    HttpClient client;
-    client.PostRequest(m_sacnRet,
-                       url.data(),
-                        "{\"app_id\":" + std::to_string(static_cast<int>(gameType)) + ",\"device\":\"" + device_id + "\",\"ticket\":\"" + std::string(ticket) + "\"}");
-    nlohmann::json j;
-    j= nlohmann::json::parse(m_sacnRet);
-    if ((int)j["retcode"] != 0)
-    {
-        return false;
-    }
-
-    return true;
-}
-
-inline bool ConfirmQRLogin(const std::string_view url, const std::string_view uid, const std::string_view gameToken, const std::string_view ticket, GameType gameType)
-{
-    std::string s;
-    // 手动构建 JSON，确保 raw 字段中的引号被正确转义
-    std::string requestBody = "{\"app_id\":" + std::to_string(static_cast<int>(gameType)) +
-        ",\"device\":\"" + device_id + "\"" +
-        ",\"payload\":{\"proto\":\"Account\",\"raw\":\"{\\\"uid\\\":\\\"" + std::string(uid) +
-        "\\\",\\\"token\\\":\\\"" + std::string(gameToken) + "\\\"}\"}" +
-        ",\"ticket\":\"" + std::string(ticket) + "\"}";
-
-    HttpClient client;
-    client.PostRequest(s, url.data(), requestBody);
-    nlohmann::json j;
-    j= nlohmann::json::parse(s);
-    if ((int)j["retcode"] != 0)
-    {
-        return false;
-    }
-    return true;
 }

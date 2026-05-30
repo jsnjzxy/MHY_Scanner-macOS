@@ -49,4 +49,13 @@ namespace MihoyoUrls
     constexpr const char* MysUserinfo = "https://bbs-api.miyoushe.com/user/api/getUserFullInfo";
     constexpr const char* PassportVerifier = "https://passport-api.mihoyo.com/account/ma-cn-verifier/verifier/createLoginCaptcha";
     constexpr const char* LoginByMobileCaptcha = "https://passport-api.mihoyo.com/account/ma-cn-passport/app/loginByMobileCaptcha";
+
+    // 米游社 Passport 登录 API
+    constexpr const char* PassportQrcodeCreate = "https://passport-api.mihoyo.com/account/ma-cn-passport/app/createQRLogin";
+    constexpr const char* PassportQrcodeQuery = "https://passport-api.mihoyo.com/account/ma-cn-passport/app/queryQRLoginStatus";
+    constexpr const char* PassportQrcodeScan = "https://passport-api.mihoyo.com/account/ma-cn-passport/app/scanQRLogin";
+    constexpr const char* PassportQrcodeConfirm = "https://passport-api.mihoyo.com/account/ma-cn-passport/app/confirmQRLogin";
+
+    // 账号信息
+    constexpr const char* GetCookieAccountInfo = "https://api-takumi.mihoyo.com/auth/api/getCookieAccountInfoBySToken";
 }
