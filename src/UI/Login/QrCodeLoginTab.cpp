@@ -49,27 +49,31 @@ void QrCodeLoginTab::setupUI()
     m_promptLabel->setAlignment(Qt::AlignCenter);
     mainLayout->addWidget(m_promptLabel);
 
-    // 二维码区域 - 使用容器实现居中
+    // 二维码区域容器 - 用于居中和覆盖
     QHBoxLayout* qrCodeContainer = new QHBoxLayout();
     qrCodeContainer->addStretch();
 
-    m_qrCodeLabel = new QLabel(this);
-    m_qrCodeLabel->setFixedSize(QrUIConstants::QRCodeSize, QrUIConstants::QRCodeSize);
+    // 创建一个容器 widget 来容纳二维码和覆盖按钮
+    QWidget* qrCodeWidget = new QWidget(this);
+    qrCodeWidget->setFixedSize(QrUIConstants::QRCodeSize, QrUIConstants::QRCodeSize);
+
+    // 使用绝对定位让按钮覆盖在二维码上
+    m_qrCodeLabel = new QLabel(qrCodeWidget);
+    m_qrCodeLabel->setGeometry(0, 0, QrUIConstants::QRCodeSize, QrUIConstants::QRCodeSize);
     m_qrCodeLabel->setAlignment(Qt::AlignCenter);
     m_qrCodeLabel->setText("二维码加载中");
     m_qrCodeLabel->setFont(StyleManager::instance().getBodyFont());
     m_qrCodeLabel->setStyleSheet("QLabel { background-color: #FFFFFF; border: 1px solid #E0E0E0; border-radius: 8px; }");
-    qrCodeContainer->addWidget(m_qrCodeLabel);
 
+    // 刷新按钮（覆盖在二维码上，默认隐藏）
+    m_refreshButton = new QPushButton("二维码已过期\n点击刷新二维码", qrCodeWidget);
+    m_refreshButton->setGeometry(0, 0, QrUIConstants::QRCodeSize, QrUIConstants::QRCodeSize);
+    m_refreshButton->setFont(StyleManager::instance().getButtonFont());
+    m_refreshButton->setVisible(false);
+
+    qrCodeContainer->addWidget(qrCodeWidget);
     qrCodeContainer->addStretch();
     mainLayout->addLayout(qrCodeContainer);
-
-    // 刷新按钮（默认隐藏）
-    m_refreshButton = new QPushButton("二维码已过期\n点击刷新二维码", this);
-    m_refreshButton->setFont(StyleManager::instance().getButtonFont());
-    m_refreshButton->setFixedSize(QrUIConstants::QRCodeSize, QrUIConstants::QRCodeSize);
-    m_refreshButton->setVisible(false);
-    mainLayout->addWidget(m_refreshButton);
 
     // 按钮区域
     QHBoxLayout* buttonLayout = new QHBoxLayout();
