@@ -2,6 +2,7 @@
 
 #include <sstream>
 #include <cstdlib>
+#include <iostream>
 #include <cpr/api.h>
 
 #ifdef ENABLE_PROXY
@@ -58,6 +59,17 @@ HttpClient::HttpClient()
 
     if (!proxyUrl.empty()) {
         session.SetProxies(cpr::Proxies{{"http", proxyUrl}, {"https", proxyUrl}});
+        // 同时设置环境变量，确保系统 libcurl 也使用代理
+        setenv("http_proxy", proxyUrl.c_str(), 1);
+        setenv("https_proxy", proxyUrl.c_str(), 1);
+        setenv("HTTP_PROXY", proxyUrl.c_str(), 1);
+        setenv("HTTPS_PROXY", proxyUrl.c_str(), 1);
+        // 保存代理 URL 供请求使用
+        this->proxyUrl = proxyUrl;
+        // 输出调试信息
+        std::cout << "[HttpClient] Detected proxy: " << proxyUrl << std::endl;
+    } else {
+        std::cout << "[HttpClient] No local proxy detected" << std::endl;
     }
 #endif
 }
@@ -119,6 +131,23 @@ bool HttpClient::GetRequest(std::string& response, const char* url, std::map<std
             cprHeaders.insert({kv.first, kv.second});
         }
 
+#ifdef ENABLE_PROXY
+        if (!proxyUrl.empty()) {
+            cpr::Proxies proxies{
+                {"http", proxyUrl},
+                {"https", proxyUrl}
+            };
+            cpr::Response r = cpr::Get(
+                cpr::Url{url},
+                cprHeaders,
+                cpr::AcceptEncoding{cpr::AcceptEncodingMethods::gzip},
+                proxies
+            );
+            response = r.text;
+            return r.status_code >= 200 && r.status_code < 300;
+        }
+#endif
+
         cpr::Response r = cpr::Get(
             cpr::Url{url},
             cprHeaders,
@@ -145,6 +174,38 @@ bool HttpClient::PostRequest(std::string& response, const char* url, const std::
             cprHeaders.insert({kv.first, kv.second});
         }
 
+#ifdef ENABLE_PROXY
+        if (!proxyUrl.empty()) {
+            cpr::Proxies proxies{
+                {"http", proxyUrl},
+                {"https", proxyUrl}
+            };
+            cpr::Response r = cpr::Post(
+                cpr::Url{url},
+                cprHeaders,
+                cpr::Body{postParams},
+                proxies
+            );
+
+            if (header)
+            {
+                std::ostringstream oss;
+                for (const auto& [key, value] : r.header)
+                {
+                    oss << key << ": " << value << "\r\n";
+                }
+                oss << "\r\n" << r.text;  // 添加空行和 body
+                response = oss.str();
+            }
+            else
+            {
+                response = r.text;
+            }
+
+            return r.status_code >= 200 && r.status_code < 300;
+        }
+#endif
+
         cpr::Response r = cpr::Post(
             cpr::Url{url},
             cprHeaders,
@@ -166,6 +227,61 @@ bool HttpClient::PostRequest(std::string& response, const char* url, const std::
             response = r.text;
         }
 
+        return r.status_code >= 200 && r.status_code < 300;
+    }
+    catch (const std::exception&)
+    {
+        return false;
+    }
+}
+
+bool HttpClient::PostRequestWithCookies(std::string& response, std::map<std::string, std::string>& cookies,
+                                         const char* url, const std::string& postParams,
+                                         std::map<std::string, std::string> headers)
+{
+    try
+    {
+        cpr::Header cprHeaders;
+        for (const auto& kv : headers)
+        {
+            cprHeaders.insert({kv.first, kv.second});
+        }
+
+#ifdef ENABLE_PROXY
+        if (!proxyUrl.empty()) {
+            cpr::Proxies proxies{
+                {"http", proxyUrl},
+                {"https", proxyUrl}
+            };
+            cpr::Response r = cpr::Post(
+                cpr::Url{url},
+                cprHeaders,
+                cpr::Body{postParams},
+                proxies
+            );
+
+            response = r.text;
+            // 提取响应头中的 Cookie
+            for (const auto& cookie : r.cookies)
+            {
+                cookies[cookie.GetName()] = cookie.GetValue();
+            }
+            return r.status_code >= 200 && r.status_code < 300;
+        }
+#endif
+
+        cpr::Response r = cpr::Post(
+            cpr::Url{url},
+            cprHeaders,
+            cpr::Body{postParams}
+        );
+
+        response = r.text;
+        // 提取响应头中的 Cookie
+        for (const auto& cookie : r.cookies)
+        {
+            cookies[cookie.GetName()] = cookie.GetValue();
+        }
         return r.status_code >= 200 && r.status_code < 300;
     }
     catch (const std::exception&)
