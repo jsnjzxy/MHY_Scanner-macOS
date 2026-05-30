@@ -134,8 +134,14 @@ void QrCodeLoginTab::startLogin()
     m_qrCodePool.start([this]() {
         try {
             m_allowDrawQRCode.store(false);
-            const std::string qrcodeString = GetLoginQrcodeUrl();
-            m_ticket = std::string(qrcodeString.data() + qrcodeString.size() - 24, 24);
+            // 使用 Passport API
+            auto qrResult = CreateQrcodeLogin();
+            if (qrResult.retcode != 0) {
+                throw std::runtime_error("获取二维码失败，错误码: " + std::to_string(qrResult.retcode));
+            }
+
+            m_ticket = qrResult.ticket;
+            const std::string qrcodeString = qrResult.url;
             m_qrCodeMat = createQrCodeToCvMat(qrcodeString);
 
             QImage image = CV_8UC1_MatToQImage(m_qrCodeMat);
@@ -183,13 +189,14 @@ void QrCodeLoginTab::onRefreshButtonClicked()
 void QrCodeLoginTab::checkLoginState()
 {
     try {
-        auto result = GetQRCodeState(m_ticket);
+        // 使用 Passport API
+        auto result = QueryQrcodeStatus(m_ticket);
 
-        switch (result.StateType) {
-        case decltype(result.StateType)::Init:
+        switch (result.status) {
+        case decltype(result.status)::Created:
             break;
 
-        case decltype(result.StateType)::Scanned:
+        case decltype(result.status)::Scanned:
             QMetaObject::invokeMethod(this, [this]() {
                 if (m_qrCodeLabel) {
                     m_qrCodeLabel->setText("正在登录\n\n请在手机上点击「确认登录」");
@@ -197,29 +204,27 @@ void QrCodeLoginTab::checkLoginState()
             });
             break;
 
-        case decltype(result.StateType)::Confirmed: {
-            auto resultStoken = getStokenByGameToken(result.uid, result.token);
-            if (resultStoken.has_value()) {
-                std::string name = getMysUserName(result.uid);
-                const auto& [mid, stoken] = *resultStoken;
-                // 所有 UI 操作都在主线程中执行
-                QMetaObject::invokeMethod(this, [this, name, stoken, uid = result.uid, mid]() {
-                    // 检查对象是否仍然有效
-                    if (m_qrCodeLabel) {
-                        m_qrCodeLabel->setText("登录成功！");
-                    }
-                    stopTimer();
-                    emit loginSuccess(name, stoken, uid, mid, "官服");
-                }, Qt::QueuedConnection);
-            } else {
-                QMetaObject::invokeMethod(this, [this]() {
-                    emit showMessageRequested("获取STOKEN失败！");
-                });
+        case decltype(result.status)::Confirmed: {
+            // Passport API 直接返回 Token，无需额外转换
+            std::string name = getMysUserName(result.aid);
+
+            // 优先使用 stoken（用于 passport API 确认游戏二维码）
+            std::string token;
+            if (!result.stoken.empty()) {
+                token = result.stoken;
             }
+
+            QMetaObject::invokeMethod(this, [this, name, token, aid = result.aid, mid = result.mid]() {
+                if (m_qrCodeLabel) {
+                    m_qrCodeLabel->setText("登录成功！");
+                }
+                stopTimer();
+                emit loginSuccess(name, token, aid, mid, "官服");
+            }, Qt::QueuedConnection);
             return;
         }
 
-        case decltype(result.StateType)::Expired: {
+        case decltype(result.status)::Expired: {
             QMetaObject::invokeMethod(this, [this]() {
                 // 显示过期二维码
                 if (m_qrCodeLabel && !m_qrCodeMat.empty()) {
@@ -234,6 +239,14 @@ void QrCodeLoginTab::checkLoginState()
                     m_refreshButton->setVisible(true);
                 }
                 stopTimer();
+            });
+            return;
+        }
+
+        case decltype(result.status)::Cancelled: {
+            QMetaObject::invokeMethod(this, [this]() {
+                emit showMessageRequested("用户取消扫码");
+                startLogin();  // 重新生成二维码
             });
             return;
         }
