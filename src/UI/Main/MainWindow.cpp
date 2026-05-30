@@ -265,21 +265,9 @@ void MainWindow::pBtstartScreen(bool clicked)
         if (std::string type = userinfo["account"][countA]["type"].get<std::string>(); type == "官服")
         {
             std::string stoken = userinfo["account"][countA]["access_key"].get<std::string>();
-            std::string uid = userinfo["account"][countA]["uid"].get<std::string>();
             std::string mid = userinfo["account"][countA]["mid"].get<std::string>();
-            std::string gameToken;
-            auto result = GetGameTokenByStoken(stoken, mid);
-            if (result)
-            {
-                gameToken = *result;
-            }
-            else
-            {
-                emit AccountError();
-                return;
-            }
             t1.setServerType(ServerType::Official);
-            t1.setLoginInfo(uid, gameToken);
+            t1.setLoginInfo(stoken, mid);
         }
         else if (type == "崩坏3B服")
         {
@@ -333,21 +321,9 @@ void MainWindow::pBtStream(bool clicked)
         if (const std::string& type = userinfo["account"][countA]["type"]; type == "官服")
         {
             std::string stoken = userinfo["account"][countA]["access_key"].get<std::string>();
-            std::string uid = userinfo["account"][countA]["uid"].get<std::string>();
             std::string mid = userinfo["account"][countA]["mid"].get<std::string>();
-            std::string gameToken;
-            auto result = GetGameTokenByStoken(stoken, mid);
-            if (result)
-            {
-                gameToken = *result;
-            }
-            else
-            {
-                emit AccountError();
-                return;
-            }
             t2.setServerType(ServerType::Official);
-            t2.setLoginInfo(uid, gameToken);
+            t2.setLoginInfo(stoken, mid);
         }
         else if (type == "崩坏3B服")
         {

@@ -41,8 +41,8 @@ public:
     ~StreamScanThread();
     Q_DISABLE_COPY_MOVE(StreamScanThread)
 
-    void setLoginInfo(const std::string_view uid, const std::string_view gameToken);
-    void setLoginInfo(const std::string_view uid, const std::string_view gameToken, const std::string& name);
+    void setLoginInfo(const std::string_view stoken, const std::string_view mid);
+    void setLoginInfo(const std::string_view stoken, const std::string_view mid, const std::string& name);
     void setServerType(const ServerType servertype);
     void setUrl(const std::string& url, const std::map<std::string, std::string> heard = {});
     void setContinuousScan(bool enabled);  // 设置连续扫码模式

@@ -85,8 +85,15 @@ void ScreenScanThread::handleQRCodeDetected(const std::string& code)
 
     m_lastDetectedTicket = code;
 
-    // 扫描登录
-    if (ScanQRLogin(scanUrl.data(), ticket, gameType)) {
+    // 检查是否有登录凭证
+    if (stoken.empty() || mid.empty()) {
+        std::cout << "[Screen] No account credentials available" << std::endl;
+        emit loginResults(ScanRet::FAILURE_1);
+        return;
+    }
+
+    // 使用 Passport API 扫描登录
+    if (ScanGameQrcode(ticket, stoken, mid)) {
         lastTicket = ticket;
         nlohmann::json config;
         config = nlohmann::json::parse(m_config->getConfig());
@@ -133,16 +140,16 @@ void ScreenScanThread::LoginBH3BiliBili()
     stop();
 }
 
-void ScreenScanThread::setLoginInfo(const std::string& uid, const std::string& token)
+void ScreenScanThread::setLoginInfo(const std::string& stoken, const std::string& mid)
 {
-    this->uid = uid;
-    this->gameToken = token;
+    this->stoken = stoken;
+    this->mid = mid;
 }
 
-void ScreenScanThread::setLoginInfo(const std::string& uid, const std::string& token, const std::string& name)
+void ScreenScanThread::setLoginInfo(const std::string& stoken, const std::string& mid, const std::string& name)
 {
-    this->uid = uid;
-    this->gameToken = token;
+    this->stoken = stoken;
+    this->mid = mid;
     this->m_name = name;
 }
 
@@ -153,7 +160,7 @@ void ScreenScanThread::continueLastLogin()
         using enum ServerType;
     case Official:
     {
-        bool b = ConfirmQRLogin(confirmUrl, uid, gameToken, lastTicket, gameType);
+        bool b = ConfirmGameQrcode(lastTicket, stoken, mid);
         if (b)
         {
             emit loginResults(ScanRet::SUCCESS);

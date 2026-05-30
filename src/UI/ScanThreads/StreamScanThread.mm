@@ -107,7 +107,14 @@ void StreamScanThread::handleQRCodeDetected(const std::string& code)
     }
 
     bool success = false;
-    if (ScanQRLogin(scanUrl.data(), ticket, gameType)) {
+    // 检查是否有登录凭证
+    if (stoken.empty() || mid.empty()) {
+        std::cout << "[Stream] No account credentials available" << std::endl;
+        Q_EMIT loginResults(ScanRet::FAILURE_1);
+        mtx.unlock();
+        return;
+    }
+    if (ScanGameQrcode(ticket, stoken, mid)) {
         lastTicket = ticket;
         m_lastDetectedTicket = std::string(ticket);
         success = true;
@@ -180,16 +187,16 @@ bool StreamScanThread::initHWDecoder(AVCodecID codecId)
 // ========================================
 // 登录信息设置
 // ========================================
-void StreamScanThread::setLoginInfo(const std::string_view uid, const std::string_view gameToken)
+void StreamScanThread::setLoginInfo(const std::string_view stoken, const std::string_view mid)
 {
-    this->uid = uid;
-    this->gameToken = gameToken;
+    this->stoken = stoken;
+    this->mid = mid;
 }
 
-void StreamScanThread::setLoginInfo(const std::string_view uid, const std::string_view gameToken, const std::string& name)
+void StreamScanThread::setLoginInfo(const std::string_view stoken, const std::string_view mid, const std::string& name)
 {
-    this->uid = uid;
-    this->gameToken = gameToken;
+    this->stoken = stoken;
+    this->mid = mid;
     this->m_name = name;
 }
 
@@ -524,7 +531,7 @@ void StreamScanThread::continueLastLogin()
         using enum ServerType;
     case Official:
     {
-        bool b = ConfirmQRLogin(confirmUrl, uid, gameToken, lastTicket, gameType);
+        bool b = ConfirmGameQrcode(lastTicket, stoken, mid);
         if (b)
         {
             Q_EMIT loginResults(ScanRet::SUCCESS);
