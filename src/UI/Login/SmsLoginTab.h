@@ -7,6 +7,11 @@
 #include <QLabel>
 #include <QTimer>
 
+#ifdef __APPLE__
+// 前向声明
+class GeetestDialog;
+#endif
+
 /**
  * @brief 短信登录 Tab
  */
@@ -39,10 +44,15 @@ private slots:
     void onConfirmButtonClicked();
     void onTimerTimeout();
     void onPhoneTextChanged(const QString& text);
+    void onGeetestVerifyCompleted(const QString& lotNumber, const QString& passToken,
+                                   const QString& captchaOutput, const QString& genTime);
 
 private:
     void setupUI();
     void enableControls(bool enabled);
+    void showGeetestDialog(const QString& gt, const QString& sessionId);
+    void sendCaptchaWithGeetest(const QString& lotNumber, const QString& passToken,
+                                 const QString& captchaOutput, const QString& genTime);
 
     // UI 控件
     QLabel* m_areaCodeLabel{nullptr};
@@ -57,4 +67,12 @@ private:
     int m_remainingSeconds{0};
     std::string m_phoneNumber;
     std::string m_actionType;
+
+    // 极验验证状态
+    std::string m_sessionId;
+    std::string m_gt;
+
+#ifdef __APPLE__
+    GeetestDialog* m_geetestDialog{nullptr};
+#endif
 };

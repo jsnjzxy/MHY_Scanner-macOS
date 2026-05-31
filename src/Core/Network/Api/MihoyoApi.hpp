@@ -57,16 +57,23 @@ static const std::string device_id{ CreateUUID::CreateUUID4() };
 
 inline std::map<std::string, std::string> GetRequestHeader()
 {
+    static const std::string lifecycle_id{ CreateUUID::CreateUUID4() };
     static const std::map<std::string, std::string> header{
-        { "User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) miHoYoBBS/2.76.1" },
-        { "Accept", "application/json" },
+        { "User-Agent", "Hyperion/557 CFNetwork/3860.600.12 Darwin/25.5.0" },
+        { "Accept", "*/*" },
+        { "Accept-Language", "zh-CN,zh-Hans;q=0.9" },
         { "x-rpc-app_id", "bll8iq97cem8" },
-        { "x-rpc-app_version", "2.76.1" },
-        { "x-rpc-client_type", "2" },
+        { "x-rpc-app_version", "2.107.0" },
+        { "x-rpc-client_type", "1" },  // 1 = iOS
         { "x-rpc-device_id", device_id },
-        { "x-rpc-device_name", "" },
+        { "x-rpc-device_name", "iPhone" },
+        { "x-rpc-device_model", "iPhone15,4" },
+        { "x-rpc-device_fp", "38d7f5fa3b647" },
         { "x-rpc-game_biz", "bbs_cn" },
-        { "x-rpc-sdk_version", "2.16.0" }
+        { "x-rpc-sdk_version", "2.51.0" },
+        { "x-rpc-account_version", "2.51.0" },
+        { "x-rpc-sys_version", "26.5" },
+        { "x-rpc-lifecycle_id", lifecycle_id }
     };
     return header;
 }
@@ -435,15 +442,19 @@ inline auto CreateLoginCaptcha(const std::string_view mobile, const std::string_
 
     const std::string RequestBody{ "{\"area_code\":\"" + Encrypt("+86") + "\",\"mobile\":\"" + Encrypt(mobile) + "\"}" };
     std::map<std::string, std::string> headers{ GetRequestHeader() };
+    headers["Content-Type"] = "application/json";
     headers["DS"] = DataSignAlgorithmVersionGen2(RequestBody, "");
     if (!aigis.empty())
     {
         headers["X-Rpc-Aigis"] = aigis;
+        std::cout << "[CreateLoginCaptcha] Aigis header: " << aigis.substr(0, std::min(size_t(200), aigis.length())) << "..." << std::endl;
     }
 
     HttpClient h;
     std::string s;
     h.PostRequest(s, MihoyoUrls::PassportVerifier, RequestBody, headers, true);
+
+    std::cout << "[CreateLoginCaptcha] Response: " << s.substr(0, std::min(size_t(500), s.length())) << "..." << std::endl;
 
     // 解析响应
     std::string bodystr{};
@@ -574,6 +585,66 @@ inline auto LoginByMobileCaptcha(const std::string_view actionType, const std::s
         result.data.aid = j["data"]["user_info"]["aid"].get<std::string>();
         result.data.mid = j["data"]["user_info"]["mid"].get<std::string>();
     }
+    return result;
+}
+
+// Token 类型转换（token_type=1 -> token_type=4）
+inline auto ExchangeToken(const std::string_view mid, const std::string_view token, int srcTokenType = 1, int dstTokenType = 4)
+{
+    struct
+    {
+        int retcode{};
+        std::string token{};
+        std::string aid{};
+        std::string mid{};
+        int expireSeconds{0};
+    } result;
+
+    // 构建请求体
+    nlohmann::json j;
+    j["mid"] = std::string(mid);
+    j["dst_token_type"] = dstTokenType;
+    j["src_token"]["token"] = std::string(token);
+    j["src_token"]["token_type"] = srcTokenType;
+    const std::string RequestBody = j.dump(-1, ' ', false, nlohmann::json::error_handler_t::ignore);
+
+    std::map<std::string, std::string> headers{ GetRequestHeader() };
+    headers["DS"] = DataSignAlgorithmVersionGen2(RequestBody, "");
+
+    HttpClient h;
+    std::string s;
+    h.PostRequest(s, MihoyoUrls::PassportTokenExchange, RequestBody, headers);
+
+    std::cout << "[ExchangeToken] Response: " << (s.empty() ? "(empty)" : s.substr(0, 200)) << std::endl;
+
+    if (s.empty())
+    {
+        result.retcode = -9999;
+        return result;
+    }
+
+    try
+    {
+        nlohmann::json j = nlohmann::json::parse(s);
+        result.retcode = j.value("retcode", -9998);
+
+        if (result.retcode == 0 && j.contains("data"))
+        {
+            result.token = j["data"]["token"].value("token", "");
+            result.expireSeconds = std::stoi(j["data"].value("expire_in_seconds", "0"));
+
+            if (j["data"].contains("user_info"))
+            {
+                result.aid = j["data"]["user_info"].value("aid", "");
+                result.mid = j["data"]["user_info"].value("mid", "");
+            }
+        }
+    }
+    catch (...)
+    {
+        result.retcode = -9997;
+    }
+
     return result;
 }
 

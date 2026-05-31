@@ -58,4 +58,7 @@ namespace MihoyoUrls
 
     // 账号信息
     constexpr const char* GetCookieAccountInfo = "https://api-takumi.mihoyo.com/auth/api/getCookieAccountInfoBySToken";
+
+    // Token 转换
+    constexpr const char* PassportTokenExchange = "https://passport-api.mihoyo.com/account/ma-cn-session/app/exchange";
 }

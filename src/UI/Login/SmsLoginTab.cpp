@@ -5,11 +5,18 @@
 #include <QRegularExpression>
 #include <QRegularExpressionValidator>
 #include <QThreadPool>
+#include <QMetaObject>
+#include <QByteArray>
+#include <iostream>
 
 #include "Widgets/StyleManager.h"
 
 #include "Network/Api/MihoyoApi.hpp"
 #include "Common/Constants.h"
+
+#ifdef __APPLE__
+#include "GeetestDialog.h"
+#endif
 
 // UI 常量
 namespace SmsUIConstants {
@@ -28,6 +35,10 @@ namespace SmsUIConstants {
 struct SmsLoginState {
     std::string phoneNumber;
     std::string actionType;
+    std::string sessionId;
+    std::string gt;
+    std::string mid;
+    std::string tokenType1;
 } static gSmsState;
 
 SmsLoginTab::SmsLoginTab(QWidget* parent)
@@ -41,6 +52,11 @@ SmsLoginTab::~SmsLoginTab()
     if (m_countdownTimer) {
         m_countdownTimer->stop();
     }
+#ifdef __APPLE__
+    if (m_geetestDialog) {
+        delete m_geetestDialog;
+    }
+#endif
 }
 
 void SmsLoginTab::setupUI()
@@ -136,6 +152,7 @@ void SmsLoginTab::reset()
         m_countdownTimer->stop();
         m_sendButton->setText("发送");
     }
+    gSmsState = {};
 }
 
 bool SmsLoginTab::validate() const
@@ -179,19 +196,31 @@ void SmsLoginTab::onSendButtonClicked()
     m_verifyCodeEdit->clear();
     m_confirmButton->setEnabled(false);
 
+    gSmsState.phoneNumber = m_phoneEdit->text().toStdString();
+
     QThreadPool::globalInstance()->start([this] {
-        std::string phoneNumber = m_phoneEdit->text().toStdString();
-        auto result = CreateLoginCaptcha(phoneNumber);
+        auto result = CreateLoginCaptcha(gSmsState.phoneNumber);
 
         if (result.retcode == 0) {
-            gSmsState.phoneNumber = phoneNumber;
             gSmsState.actionType = result.action_type;
             QMetaObject::invokeMethod(this, [this]() { enableControls(true); });
         } else if (result.retcode == -3101 && result.mmt_type != 0) {
-            QMetaObject::invokeMethod(this, [this]() {
+            // 需要极验验证
+            gSmsState.sessionId = result.session_id;
+            gSmsState.gt = result.gt;
+
+            QMetaObject::invokeMethod(this, [this, result]() {
+#ifdef __APPLE__
+                // 显示极验验证对话框
+                showGeetestDialog(
+                    QString::fromStdString(result.gt),
+                    QString::fromStdString(result.session_id)
+                );
+#else
                 emit showMessageRequested("当前需要验证码，请使用 Cookie 登录或稍后重试");
                 enableControls(false);
                 m_sendButton->setEnabled(true);
+#endif
             });
         } else if (result.retcode == -3008) {
             QMetaObject::invokeMethod(this, [this]() {
@@ -215,6 +244,105 @@ void SmsLoginTab::onSendButtonClicked()
     });
 }
 
+#ifdef __APPLE__
+void SmsLoginTab::showGeetestDialog(const QString& gt, const QString& sessionId)
+{
+    if (!m_geetestDialog) {
+        m_geetestDialog = new GeetestDialog(this);
+        connect(m_geetestDialog, &GeetestDialog::verifyCompleted,
+                this, [this](const GeetestDialog::VerifyResult& result) {
+            if (result.success) {
+                onGeetestVerifyCompleted(result.lotNumber, result.passToken,
+                                          result.captchaOutput, result.genTime);
+            } else {
+                emit showMessageRequested(result.errorMessage.isEmpty()
+                    ? QStringLiteral("验证失败") : result.errorMessage);
+                m_sendButton->setEnabled(true);
+            }
+        });
+    }
+
+    m_geetestDialog->setParams(gt, QString(), sessionId, true);
+    m_geetestDialog->startVerify();
+    m_geetestDialog->exec();
+}
+
+void SmsLoginTab::onGeetestVerifyCompleted(const QString& lotNumber, const QString& passToken,
+                                            const QString& captchaOutput, const QString& genTime)
+{
+    // 保存验证结果
+    m_sessionId = gSmsState.sessionId;
+    m_gt = gSmsState.gt;
+
+    std::cout << "[SmsLoginTab] onGeetestVerifyCompleted:" << std::endl;
+    std::cout << "  m_sessionId: " << m_sessionId << std::endl;
+    std::cout << "  m_gt: " << m_gt << std::endl;
+    std::cout << "  gSmsState.sessionId: " << gSmsState.sessionId << std::endl;
+
+    // 带验证结果发送短信
+    sendCaptchaWithGeetest(lotNumber, passToken, captchaOutput, genTime);
+}
+
+void SmsLoginTab::sendCaptchaWithGeetest(const QString& lotNumber, const QString& passToken,
+                                           const QString& captchaOutput, const QString& genTime)
+{
+    // 调试：确认参数值
+    std::cout << "[SmsLoginTab] sendCaptchaWithGeetest:" << std::endl;
+    std::cout << "  m_sessionId: '" << m_sessionId << "'" << std::endl;
+    std::cout << "  m_gt: '" << m_gt << "'" << std::endl;
+    std::cout << "  lotNumber: " << lotNumber.toStdString() << std::endl;
+    std::cout << "  passToken: " << passToken.toStdString() << std::endl;
+    std::cout << "  genTime: " << genTime.toStdString() << std::endl;
+
+    // 构建 Aigis 数据（米游社格式）
+    // 格式: {session_id};{base64(json)}
+    // 注意：使用 ordered_json 保持字段顺序与米游社一致
+
+    nlohmann::json userInfo;
+    userInfo["session_id"] = m_sessionId;
+
+    // 使用 ordered_json 保持插入顺序
+    nlohmann::ordered_json aigisJson;
+    aigisJson["captcha_output"] = captchaOutput.toStdString();
+    aigisJson["userInfo"] = userInfo.dump();
+    aigisJson["gen_time"] = genTime.toStdString();
+    aigisJson["lot_number"] = lotNumber.toStdString();
+    aigisJson["pass_token"] = passToken.toStdString();
+    aigisJson["captcha_id"] = m_gt;
+
+    // Base64 编码
+    std::string jsonStr = aigisJson.dump();
+    // TODO: 使用 Qt 自带的 Base64 编码
+    // std::string base64Str = base64_encode(jsonStr);
+    std::string base64Str = QByteArray::fromStdString(jsonStr).toBase64().toStdString();
+
+    // 最终格式: {session_id};{base64}
+    std::string aigisStr = m_sessionId + ";" + base64Str;
+
+    // 调试输出
+    std::cout << "[SmsLoginTab] Aigis JSON (full): " << jsonStr << std::endl;
+    std::cout << "[SmsLoginTab] Aigis header (first 150 chars): " << aigisStr.substr(0, 150) << "..." << std::endl;
+
+    QThreadPool::globalInstance()->start([this, aigisStr] {
+        auto result = CreateLoginCaptcha(gSmsState.phoneNumber, aigisStr);
+
+        if (result.retcode == 0) {
+            gSmsState.actionType = result.action_type;
+            QMetaObject::invokeMethod(this, [this]() {
+                enableControls(true);
+                emit showMessageRequested(QStringLiteral("验证码已发送"));
+            });
+        } else {
+            QMetaObject::invokeMethod(this, [this, retcode = result.retcode]() {
+                emit showMessageRequested("发送失败，错误码: " + QString::number(retcode));
+                enableControls(false);
+                m_sendButton->setEnabled(true);
+            });
+        }
+    });
+}
+#endif
+
 void SmsLoginTab::onConfirmButtonClicked()
 {
     QThreadPool::globalInstance()->start([this] {
@@ -226,10 +354,23 @@ void SmsLoginTab::onConfirmButtonClicked()
                 emit showMessageRequested("验证码错误");
             });
         } else if (result.retcode == 0) {
-            const std::string name = getMysUserName(result.data.aid);
-            QMetaObject::invokeMethod(this, [this, name, result]() {
-                emit loginSuccess(name, result.data.V2Token, result.data.aid, result.data.mid, "官服");
-            });
+            // 保存 token_type=1 的 token
+            gSmsState.tokenType1 = result.data.V2Token;
+            gSmsState.mid = result.data.mid;
+
+            // 调用 exchange 转换为 token_type=4
+            auto exchangeResult = ExchangeToken(result.data.mid, result.data.V2Token, 1, 4);
+
+            if (exchangeResult.retcode == 0) {
+                const std::string name = getMysUserName(result.data.aid);
+                QMetaObject::invokeMethod(this, [this, name, exchangeResult, result]() {
+                    emit loginSuccess(name, exchangeResult.token, result.data.aid, result.data.mid, "官服");
+                });
+            } else {
+                QMetaObject::invokeMethod(this, [this, retcode = exchangeResult.retcode]() {
+                    emit showMessageRequested("Token转换失败，错误码: " + QString::number(retcode));
+                });
+            }
         } else {
             QMetaObject::invokeMethod(this, [this, retcode = result.retcode]() {
                 emit showMessageRequested("登录失败，错误码: " + QString::number(retcode));

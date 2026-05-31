@@ -16,14 +16,18 @@ qt_add_executable(${PROJECT_NAME}
     "Login/CookieLoginTab.cpp"
     "Login/BiliLoginTab.cpp"
     "Login/LoginDialog.cpp"
+    "Login/GeetestDialog.h"
+    "Login/GeetestDialog.mm"
     "Widgets/StyleManager.h"
     "Widgets/StyleManager.cpp"
     "Widgets/DraggableTableWidget.h"
 )
 
 # 设置 Objective-C++ 源文件的属性
-set_source_files_properties(ScanThreads/StreamScanThread.mm PROPERTIES
-    COMPILE_FLAGS "-x objective-c++"
+set_source_files_properties(
+    ScanThreads/StreamScanThread.mm
+    Login/GeetestDialog.mm
+    PROPERTIES COMPILE_FLAGS "-x objective-c++"
 )
 
 # Qt6 核心组件
@@ -55,6 +59,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     "-framework Quartz"
     "-framework AVFoundation"
     "-framework CoreMedia"
+    "-framework WebKit"
 )
 
 # 禁用 OpenCV 调试窗口
