@@ -106,7 +106,6 @@ void StreamScanThread::handleQRCodeDetected(const std::string& code)
         return;
     }
 
-    bool success = false;
     // 检查是否有登录凭证
     if (stoken.empty() || mid.empty()) {
         std::cout << "[Stream] No account credentials available" << std::endl;
@@ -114,21 +113,38 @@ void StreamScanThread::handleQRCodeDetected(const std::string& code)
         mtx.unlock();
         return;
     }
-    if (ScanGameQrcode(ticket, stoken, mid)) {
-        lastTicket = ticket;
-        m_lastDetectedTicket = std::string(ticket);
-        success = true;
+
+    // 1. 游戏特定 API 扫描，获取 tk
+    std::string tk = ScanQRLogin(scanUrl.data(), ticket, gameType);
+    if (tk.empty()) {
+        std::cout << "[Stream] ScanQRLogin failed or no tk returned" << std::endl;
+        Q_EMIT loginResults(ScanRet::FAILURE_1);
+        mtx.unlock();
+        if (!m_continuousScan.load()) {
+            stop();
+        }
+        return;
     }
 
-    if (success) {
-        nlohmann::json config = nlohmann::json::parse(m_config->getConfig());
-        if (config["auto_login"]) {
-            continueLastLogin();
-        } else {
-            Q_EMIT loginConfirm(gameType, false);
-        }
-    } else {
+    lastTicket = ticket;
+    m_lastDetectedTicket = std::string(ticket);
+    m_tk = tk;  // 保存 tk 用于确认
+
+    // 2. Passport API 扫描
+    if (!ScanGameQrcode(tk, stoken, mid)) {
         Q_EMIT loginResults(ScanRet::FAILURE_1);
+        mtx.unlock();
+        if (!m_continuousScan.load()) {
+            stop();
+        }
+        return;
+    }
+
+    nlohmann::json config = nlohmann::json::parse(m_config->getConfig());
+    if (config["auto_login"]) {
+        continueLastLogin();
+    } else {
+        Q_EMIT loginConfirm(gameType, false);
     }
 
     if (!m_continuousScan.load()) {
@@ -531,7 +547,8 @@ void StreamScanThread::continueLastLogin()
         using enum ServerType;
     case Official:
     {
-        bool b = ConfirmGameQrcode(lastTicket, stoken, mid);
+        // 使用 Passport API 确认
+        bool b = ConfirmGameQrcode(m_tk, stoken, mid);
         if (b)
         {
             Q_EMIT loginResults(ScanRet::SUCCESS);

@@ -39,7 +39,6 @@ ScreenScanThread::~ScreenScanThread()
 
 void ScreenScanThread::initScreenCapture()
 {
-    std::cout << "[Screen] initScreenCapture called" << std::endl;
     // 在主线程初始化 UnifiedScanner
     if (m_unifiedScanner == nullptr) {
         m_unifiedScanner = new UnifiedScanner(nullptr);
@@ -53,9 +52,7 @@ void ScreenScanThread::initScreenCapture()
                 });
     }
 
-    std::cout << "[Screen] Enabling ScreenCaptureKit..." << std::endl;
     m_unifiedScanner->enableScreenSource(true);
-    std::cout << "[Screen] ScreenCaptureKit enabled" << std::endl;
 }
 
 void ScreenScanThread::handleQRCodeDetected(const std::string& code)
@@ -77,7 +74,7 @@ void ScreenScanThread::handleQRCodeDetected(const std::string& code)
     }
     setGameType[view]();
 
-    // 检查 ticket 是否重复
+    // 提取 ticket
     const std::string_view ticket(code.data() + code.size() - 24, 24);
     if (lastTicket == ticket) {
         return;
@@ -92,18 +89,34 @@ void ScreenScanThread::handleQRCodeDetected(const std::string& code)
         return;
     }
 
-    // 使用 Passport API 扫描登录
-    if (ScanGameQrcode(ticket, stoken, mid)) {
-        lastTicket = ticket;
-        nlohmann::json config;
-        config = nlohmann::json::parse(m_config->getConfig());
-        if (config["auto_login"]) {
-            continueLastLogin();
-        } else {
-            emit loginConfirm(gameType, true);
-        }
-    } else {
+    // 1. 游戏特定 API 扫描，获取 tk
+    std::string tk = ScanQRLogin(scanUrl.data(), ticket, gameType);
+    if (tk.empty()) {
+        std::cout << "[Screen] ScanQRLogin failed or no tk returned" << std::endl;
         emit loginResults(ScanRet::FAILURE_1);
+        if (!m_continuousScan.load()) {
+            stop();
+        }
+        return;
+    }
+
+    lastTicket = ticket;
+    m_tk = tk;  // 保存 tk 用于确认
+
+    // 2. Passport API 扫描
+    if (!ScanGameQrcode(tk, stoken, mid)) {
+        emit loginResults(ScanRet::FAILURE_1);
+        if (!m_continuousScan.load()) {
+            stop();
+        }
+        return;
+    }
+
+    nlohmann::json config = nlohmann::json::parse(m_config->getConfig());
+    if (config["auto_login"]) {
+        continueLastLogin();
+    } else {
+        emit loginConfirm(gameType, true);
     }
 
     // 非连续扫码模式下停止
@@ -115,27 +128,19 @@ void ScreenScanThread::handleQRCodeDetected(const std::string& code)
 // macOS implementation using UnifiedScanner
 void ScreenScanThread::LoginOfficial()
 {
-    std::cout << "[Screen] Using UnifiedScanner Architecture" << std::endl;
-
     // 启动统一扫描器
     m_unifiedScanner->enableScreenSource(true);
     m_unifiedScanner->setContinuousScan(m_continuousScan.load());
     m_unifiedScanner->start();
 
-    std::cout << "[Screen] Started, waiting for QR code..." << std::endl;
-
     // 等待识别到二维码或停止
     while (m_stop.load() && m_unifiedScanner->isRunning()) {
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
-
-    std::cout << "[Screen] Stopped" << std::endl;
 }
 
 void ScreenScanThread::LoginBH3BiliBili()
 {
-    // BH3 Bilibili 使用旧架构（暂未完全实现）
-    std::cout << "[Screen] BH3 Bilibili not yet implemented with UnifiedScanner" << std::endl;
     emit loginResults(ScanRet::FAILURE_1);
     stop();
 }
@@ -160,7 +165,8 @@ void ScreenScanThread::continueLastLogin()
         using enum ServerType;
     case Official:
     {
-        bool b = ConfirmGameQrcode(lastTicket, stoken, mid);
+        // 使用 Passport API 确认
+        bool b = ConfirmGameQrcode(m_tk, stoken, mid);
         if (b)
         {
             emit loginResults(ScanRet::SUCCESS);

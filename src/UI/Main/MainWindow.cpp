@@ -266,6 +266,7 @@ void MainWindow::pBtstartScreen(bool clicked)
         {
             std::string stoken = userinfo["account"][countA]["access_key"].get<std::string>();
             std::string mid = userinfo["account"][countA]["mid"].get<std::string>();
+
             t1.setServerType(ServerType::Official);
             t1.setLoginInfo(stoken, mid);
         }
@@ -322,6 +323,7 @@ void MainWindow::pBtStream(bool clicked)
         {
             std::string stoken = userinfo["account"][countA]["access_key"].get<std::string>();
             std::string mid = userinfo["account"][countA]["mid"].get<std::string>();
+
             t2.setServerType(ServerType::Official);
             t2.setLoginInfo(stoken, mid);
         }

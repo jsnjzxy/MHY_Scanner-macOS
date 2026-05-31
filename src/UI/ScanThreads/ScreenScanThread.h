@@ -45,6 +45,7 @@ private:
     std::atomic<bool> m_stop;
     std::atomic<bool> m_continuousScan{false};
     std::string m_name;
+    std::string m_tk;  // Passport API 所需的 tk
     GameType m_gametype{ GameType::UNKNOW };
     ServerType servertype{};
     ScanRet ret{ ScanRet::UNKNOW };

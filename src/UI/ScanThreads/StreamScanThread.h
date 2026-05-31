@@ -84,6 +84,7 @@ private:
 
     std::string streamUrl{};
     std::string m_name;
+    std::string m_tk;  // Passport API 所需的 tk
     ConfigManager* m_config;
     ServerType servertype;
     ScanRet ret = ScanRet::UNKNOW;

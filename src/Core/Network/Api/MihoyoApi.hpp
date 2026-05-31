@@ -179,10 +179,10 @@ inline auto QueryQrcodeStatus(const std::string_view ticket)
                     result.mid = j["data"]["user_info"].value("mid", "");
                 }
 
-                // 获取 stoken
-                if (j["data"].contains("token") && j["data"]["token"].is_object())
+                // 获取 stoken - 在 tokens 数组中
+                if (j["data"].contains("tokens") && j["data"]["tokens"].is_array() && !j["data"]["tokens"].empty())
                 {
-                    result.stoken = j["data"]["token"].value("token", "");
+                    result.stoken = j["data"]["tokens"][0].value("token", "");
                 }
             }
         }
@@ -205,20 +205,29 @@ inline bool ScanGameQrcode(const std::string_view ticket, const std::string_view
     std::string requestBody = "{\"token_types\":[\"1\"],\"ticket\":\"" + std::string(ticket) + "\"}";
     std::string response;
 
+    std::cout << "[ScanGameQrcode] Requesting scan..." << std::endl;
+    std::cout << "[ScanGameQrcode] ticket: " << ticket << std::endl;
+
     bool success = client.PostRequest(response, MihoyoUrls::PassportQrcodeScan, requestBody, headers);
+
+    std::cout << "[ScanGameQrcode] Response: " << (response.empty() ? "(empty)" : response.substr(0, 200)) << std::endl;
 
     if (!success || response.empty())
     {
+        std::cerr << "[ScanGameQrcode] Request failed or empty response" << std::endl;
         return false;
     }
 
     try
     {
         nlohmann::json j = nlohmann::json::parse(response);
-        return j["retcode"] == 0;
+        int retcode = j.value("retcode", -1);
+        std::cout << "[ScanGameQrcode] retcode: " << retcode << std::endl;
+        return retcode == 0;
     }
     catch (...)
     {
+        std::cerr << "[ScanGameQrcode] JSON parse failed" << std::endl;
         return false;
     }
 }
@@ -281,7 +290,7 @@ inline auto GetCookieAccountInfo(const std::string_view stoken, const std::strin
     struct
     {
         int retcode{};
-        std::string account_id{};
+        std::string uid{};
         std::string cookie_token{};
     } result;
 
@@ -293,6 +302,8 @@ inline auto GetCookieAccountInfo(const std::string_view stoken, const std::strin
 
     std::string response;
     client.GetRequest(response, MihoyoUrls::GetCookieAccountInfo, headers);
+
+    std::cout << "[GetCookieAccountInfo] Response: " << (response.empty() ? "(empty)" : response) << std::endl;
 
     if (response.empty())
     {
@@ -306,7 +317,7 @@ inline auto GetCookieAccountInfo(const std::string_view stoken, const std::strin
         result.retcode = j.value("retcode", -9998);
         if (result.retcode == 0 && j.contains("data"))
         {
-            result.account_id = j["data"].value("account_id", "");
+            result.uid = j["data"].value("uid", "");
             result.cookie_token = j["data"].value("cookie_token", "");
         }
     }
@@ -355,17 +366,34 @@ inline auto GetGameTokenByStoken(const std::string_view stoken, const std::strin
     HttpClient client;
     std::map<std::string, std::string> headers{
         { "Cookie", "stoken=" + std::string(stoken) + "; mid=" + std::string(mid) },
-        { "x-rpc-app_id", "bll8iq97cem8" }
+        { "x-rpc-app_id", "bll8iq97cem8" },
+        { "Content-Type", "application/json" },
+        { "DS", DataSignAlgorithmVersionGen2("{}", "") }
     };
     std::string s;
-    client.GetRequest(s, MihoyoUrls::TakumiGameToken, headers);
-    const std::string& data = UTF8_To_string(s);
-    nlohmann::json j;
-    j = nlohmann::json::parse(data);
-    int retcode = j["retcode"];
-    if (retcode == 0)
+    client.PostRequest(s, MihoyoUrls::TakumiGameToken, "{}", headers);
+
+    std::cout << "[GetGameTokenByStoken] Response: " << (s.empty() ? "(empty)" : s) << std::endl;
+
+    if (s.empty())
     {
-        return std::make_optional(j["data"]["game_token"]);
+        return std::nullopt;
+    }
+
+    const std::string& data = UTF8_To_string(s);
+    try
+    {
+        nlohmann::json j = nlohmann::json::parse(data);
+        int retcode = j.value("retcode", -1);
+        std::cout << "[GetGameTokenByStoken] retcode: " << retcode << std::endl;
+        if (retcode == 0 && j.contains("data") && j["data"].contains("game_token"))
+        {
+            return j["data"]["game_token"].get<std::string>();
+        }
+    }
+    catch (...)
+    {
+        std::cerr << "[GetGameTokenByStoken] JSON parse failed" << std::endl;
     }
     return std::nullopt;
 }
@@ -547,4 +575,84 @@ inline auto LoginByMobileCaptcha(const std::string_view actionType, const std::s
         result.data.mid = j["data"]["user_info"]["mid"].get<std::string>();
     }
     return result;
+}
+
+// ============================================
+// 游戏扫码 API（游戏特定 API）
+// ============================================
+
+// 扫描游戏二维码
+inline std::string ScanQRLogin(const std::string_view url, const std::string_view ticket, GameType gameType)
+{
+    std::string response;
+    HttpClient client;
+    std::string requestBody = "{\"app_id\":\"" + std::to_string(static_cast<int>(gameType)) +
+        "\",\"device\":\"" + device_id + "\"" +
+        ",\"passport_app_id\":\"bll8iq97cem8\"" +
+        ",\"ticket\":\"" + std::string(ticket) + "\"}";
+
+    auto headers = GetRequestHeader();
+    headers["Content-Type"] = "application/json";
+    client.PostRequest(response, url.data(), requestBody, headers);
+
+    if (response.empty())
+    {
+        return "";
+    }
+
+    try
+    {
+        nlohmann::json j = nlohmann::json::parse(response);
+        if (j.value("retcode", -1) == 0 && j.contains("data") && j["data"].contains("passport_qr_url"))
+        {
+            // 从 passport_qr_url 中提取 tk 参数
+            std::string passportUrl = j["data"]["passport_qr_url"].get<std::string>();
+            size_t tkPos = passportUrl.find("tk=");
+            if (tkPos != std::string::npos)
+            {
+                size_t start = tkPos + 3;
+                size_t end = passportUrl.find("&", start);
+                if (end == std::string::npos)
+                {
+                    end = passportUrl.find("#", start);
+                }
+                if (end == std::string::npos)
+                {
+                    end = passportUrl.length();
+                }
+                return passportUrl.substr(start, end - start);
+            }
+        }
+    }
+    catch (...)
+    {
+        // JSON parse failed
+    }
+    return "";
+}
+
+// 确认游戏二维码登录
+inline bool ConfirmQRLogin(const std::string_view url, const std::string_view uid, const std::string_view cookieToken, const std::string_view ticket, GameType gameType)
+{
+    std::string s;
+    std::string requestBody = "{\"app_id\":" + std::to_string(static_cast<int>(gameType)) +
+        ",\"device\":\"" + device_id + "\"" +
+        ",\"payload\":{\"proto\":\"Account\",\"raw\":\"{\\\"uid\\\":\\\"" + std::string(uid) +
+        "\\\",\\\"token\\\":\\\"" + std::string(cookieToken) + "\\\"}\"}" +
+        ",\"ticket\":\"" + std::string(ticket) + "\"}";
+
+    HttpClient client;
+    auto headers = GetRequestHeader();
+    headers["Content-Type"] = "application/json";
+    client.PostRequest(s, url.data(), requestBody, headers);
+
+    try
+    {
+        nlohmann::json j = nlohmann::json::parse(s);
+        return j.value("retcode", -1) == 0;
+    }
+    catch (...)
+    {
+        return false;
+    }
 }
